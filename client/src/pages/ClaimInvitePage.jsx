@@ -4,6 +4,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
+// UI
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, ShieldCheck } from "lucide-react";
+
 function ClaimInvitePage() {
     const { token } = useParams(); // Get token from URL
     const navigate = useNavigate();
@@ -11,8 +19,7 @@ function ClaimInvitePage() {
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-
-    const [message, setMessage] = useState('Please create your password to activate your account.');
+    
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -37,7 +44,7 @@ function ClaimInvitePage() {
 
             // On success, use our existing login() function to save the new token
             login(response.data.user, response.data.token);
-
+            
             // Redirect to the dashboard, now logged in
             navigate('/dashboard');
 
@@ -48,53 +55,56 @@ function ClaimInvitePage() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
-            <form onSubmit={handleSubmit} className="p-8 bg-white shadow-lg rounded-lg w-full max-w-sm">
-                <h2 className="text-2xl font-bold text-center mb-4">Claim Your Invite</h2>
-
-                {message && <p className="text-gray-600 text-center mb-4">{message}</p>}
-                {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        {error}
+        <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
+            <Card className="w-full max-w-md shadow-lg">
+                <CardHeader className="text-center">
+                    <div className="mx-auto bg-blue-100 p-3 rounded-full w-fit mb-2">
+                        <ShieldCheck className="h-6 w-6 text-blue-600" />
                     </div>
-                )}
-
-                <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-                        New Password
-                    </label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
-                        required
-                    />
-                </div>
-
-                <div className="mb-6">
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
-                        Confirm Password
-                    </label>
-                    <input
-                        type="password"
-                        id="confirmPassword"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
-                        required
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                    disabled={loading}
-                >
-                    {loading ? 'Activating...' : 'Activate Account'}
-                </button>
-            </form>
+                    <CardTitle className="text-2xl">Faculty Account Activation</CardTitle>
+                    <CardDescription>Set your password to claim your Department Admin account.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <Alert variant="destructive">
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        )}
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="password">New Password</Label>
+                            <Input
+                                type="password"
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="confirmPassword">Confirm Password</Label>
+                            <Input
+                                type="password"
+                                id="confirmPassword"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={loading}
+                        >
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            {loading ? 'Activating...' : 'Activate Account'}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
         </div>
     );
 }

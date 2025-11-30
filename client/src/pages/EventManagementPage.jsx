@@ -1,17 +1,17 @@
 // In client/src/pages/EventManagementPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import api from '../api';
-import ParticipantsModal from '../components/ParticipantsModal';
+import api from '../api.js';
+import ParticipantsModal from '../components/ParticipantsModal.jsx';
 import SignatureCanvas from 'react-signature-canvas';
+import { useAuth } from '../context/AuthContext.jsx';
 
 // --- SHADCN IMPORTS ---
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { MoreHorizontal, Search, PenTool, Upload, RefreshCcw } from "lucide-react"; 
+import { MoreHorizontal, Search, PenTool, RefreshCcw } from "lucide-react"; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +31,8 @@ import {
 // ---
 
 function EventManagementPage() {
+    const { user } = useAuth();
+
     // --- MAIN STATE ---
     const [events, setEvents] = useState([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -46,10 +48,11 @@ function EventManagementPage() {
         name: '', date: '', description: '',
         collegeName: 'K. S. Institute of Technology', 
         customSignatureText: 'Authorized Signature',
-        headerDepartment: 'DEPARTMENT OF MASTER OF COMPUTER APPLICATIONS (MCA)',
+        headerDepartment: '', // Default empty, will be set by logic below
         certificateTitle: 'CERTIFICATE OF PARTICIPATION',
         eventType: 'Workshop',
-        eventDuration: ''
+        eventDuration: '',
+        isPublic: false 
     });
 
     // Custom Input State
@@ -58,34 +61,43 @@ function EventManagementPage() {
 
     // Image State
     const [logoImage, setLogoImage] = useState(null); 
-    const [signatureImage, setSignatureImage] = useState(null); // Now stores upload OR drawing
+    const [signatureImage, setSignatureImage] = useState(null); 
     const sigPadRef = useRef({});
 
     const today = new Date().toISOString().split('T')[0];
 
     useEffect(() => { fetchEvents(); }, []);
 
+    // --- SMART DEPARTMENT LOGIC ---
+    useEffect(() => {
+        if (user) {
+            if (user.role === 'Faculty' && user.department) {
+                // FACULTY: Auto-fill their department for convenience
+                const formalDept = `DEPARTMENT OF ${user.department.toUpperCase()}`; 
+                setFormData(prev => ({ ...prev, headerDepartment: formalDept }));
+            } else if (user.role === 'SuperAdmin') {
+                // SUPERADMIN: Default to "Manual" mode so they can type any department
+                setFormData(prev => ({ ...prev, headerDepartment: 'OTHER' }));
+            }
+        }
+    }, [user]);
+
     const fetchEvents = async () => {
         try {
             const response = await api.get('/events');
             setEvents(response.data);
             
-            // --- SMART FEATURE: Pre-load defaults from latest event ---
+            // Pre-load defaults from latest event
             if (response.data.length > 0) {
-                // Find the most recently created event
                 const latest = response.data.reduce((a, b) => (new Date(a.createdAt) > new Date(b.createdAt) ? a : b));
-                
-                // If it has config, pre-fill our "default" state variables
                 if (latest.certificateConfig) {
                     setLogoImage(latest.certificateConfig.collegeLogo || null);
                     setSignatureImage(latest.certificateConfig.signatureImage || null);
-                    // We don't overwrite text fields so the user starts fresh, but images are reusable
                 }
             }
         } catch (err) { console.error("Failed to fetch events"); }
     };
 
-    // --- HELPER: Handle Image Uploads (Logo & Signature) ---
     const handleImageUpload = (e, setFunction) => {
         const file = e.target.files[0];
         if (file) {
@@ -96,8 +108,10 @@ function EventManagementPage() {
     };
 
     const clearSig = () => {
-        sigPadRef.current.clear();
-        setSignatureImage(null); // Clear uploaded image too
+        if (sigPadRef.current) {
+            sigPadRef.current.clear();
+        }
+        setSignatureImage(null); 
     };
 
     const handleCreateEvent = async () => {
@@ -110,7 +124,6 @@ function EventManagementPage() {
         const finalDept = formData.headerDepartment === 'OTHER' ? customDeptInput : formData.headerDepartment;
         const finalTitle = formData.certificateTitle === 'OTHER' ? customTitleInput : formData.certificateTitle;
 
-        // Determine Final Signature (Drawing takes priority if user signed)
         let finalSignature = signatureImage;
         if (sigPadRef.current && !sigPadRef.current.isEmpty()) {
             finalSignature = sigPadRef.current.getCanvas().toDataURL('image/png');
@@ -121,6 +134,7 @@ function EventManagementPage() {
                 name: formData.name,
                 date: formData.date,
                 description: formData.description,
+                isPublic: formData.isPublic, 
                 certificateConfig: {
                     collegeName: formData.collegeName,
                     customSignatureText: formData.customSignatureText,
@@ -136,17 +150,17 @@ function EventManagementPage() {
             setIsDialogOpen(false); 
             fetchEvents(); 
             
-            // Reset Text Fields (Keep images for convenience)
+            // Reset Text Fields
             setFormData(prev => ({ 
-                ...prev, name: '', date: '', description: '', eventType: '', eventDuration: ''
+                ...prev, name: '', date: '', description: '', eventType: '', eventDuration: '', isPublic: false
             }));
+            // We keep the headerDepartment logic as-is (Auto or Manual) for the next event
             
         } catch (err) {
             alert(err.response?.data?.message || "Failed to create event");
         }
     };
 
-    // ... (Issue/View/Copy handlers remain exactly the same) ...
     const handleIssueCertificates = async (event) => {
         const participantCount = event.participants?.length || 0;
         if (!window.confirm(`Are you sure you want to issue certificates to all ${participantCount} participants?`)) return;
@@ -163,12 +177,14 @@ function EventManagementPage() {
             setIssueLoading(null);
         }
     };
+
     const handleViewParticipants = (event) => setSelectedEvent(event);
     const copyToClipboard = (event) => {
         const publicUrl = `${window.location.origin}/event/${event._id}`;
         navigator.clipboard.writeText(publicUrl);
         alert('Copied!');
     };
+
     const filteredEvents = events.filter(event => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
@@ -207,28 +223,46 @@ function EventManagementPage() {
                                 <hr className="border-border my-2" />
                                 <h3 className="font-semibold text-foreground">Certificate Details</h3>
                                 
-                                {/* 2. NEW: Editable Dropdowns */}
-                                <div className="space-y-2">
-                                    <Label>Department Header</Label>
-                                    <select 
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        value={formData.headerDepartment}
-                                        onChange={(e) => setFormData({...formData, headerDepartment: e.target.value})}
-                                    >
-                                        <option value="DEPARTMENT OF MASTER OF COMPUTER APPLICATIONS (MCA)">Dept. of MCA</option>
-                                        <option value="DEPARTMENT OF COMPUTER SCIENCE (CS)">Dept. of CS</option>
-                                        <option value="DEPARTMENT OF ELECTRONICS & COMMUNICATION (ECE)">Dept. of ECE</option>
-                                        <option value="OTHER">-- Type Manually --</option>
-                                    </select>
-                                    {/* Show input if "Other" is selected */}
-                                    {formData.headerDepartment === 'OTHER' && (
-                                        <Input 
-                                            placeholder="Type custom Department Name..." 
-                                            value={customDeptInput}
-                                            onChange={(e) => setCustomDeptInput(e.target.value)}
-                                            className="mt-2"
-                                        />
-                                    )}
+                                {/* 2. Department Selection (Smart Logic) */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Department Header</Label>
+                                        <select 
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={formData.headerDepartment}
+                                            onChange={(e) => setFormData({...formData, headerDepartment: e.target.value})}
+                                        >
+                                            <option value="DEPARTMENT OF MASTER OF COMPUTER APPLICATIONS (MCA)">Dept. of MCA</option>
+                                            <option value="DEPARTMENT OF COMPUTER SCIENCE (CS)">Dept. of CS</option>
+                                            <option value="DEPARTMENT OF ELECTRONICS & COMMUNICATION (ECE)">Dept. of ECE</option>
+                                            <option value="OTHER">-- Type Manually --</option>
+                                        </select>
+                                        {/* Show input if "Other" is selected (Default for SuperAdmin) */}
+                                        {formData.headerDepartment === 'OTHER' && (
+                                            <Input 
+                                                placeholder="Type Department Name (e.g., DEPARTMENT OF CIVIL ENG)" 
+                                                value={customDeptInput}
+                                                onChange={(e) => setCustomDeptInput(e.target.value)}
+                                                className="mt-2"
+                                            />
+                                        )}
+                                    </div>
+                                    
+                                    {/* Public Checkbox */}
+                                    <div className="flex items-end pb-2">
+                                        <div className="flex items-center space-x-2 border p-2 rounded-md w-full bg-muted/20 h-10 border-input">
+                                            <input 
+                                                type="checkbox" 
+                                                id="isPublic" 
+                                                checked={formData.isPublic}
+                                                onChange={(e) => setFormData({...formData, isPublic: e.target.checked})}
+                                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 accent-primary"
+                                            />
+                                            <Label htmlFor="isPublic" className="cursor-pointer font-medium text-foreground mb-0">
+                                                Make Event Public?
+                                            </Label>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -266,7 +300,7 @@ function EventManagementPage() {
                                 <hr className="border-border my-2" />
                                 <h3 className="font-semibold text-foreground">Branding & Signature</h3>
 
-                                {/* 3. Branding (Auto-loads from history) */}
+                                {/* 3. Branding */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>College Name</Label>
@@ -286,7 +320,7 @@ function EventManagementPage() {
                                     </div>
                                 </div>
 
-                                {/* 4. Signature: Draw OR Upload */}
+                                {/* 4. Signature */}
                                 <div className="space-y-2">
                                     <Label className="flex items-center justify-between">
                                         <span className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Digital Signature</span>
@@ -294,7 +328,6 @@ function EventManagementPage() {
                                     </Label>
                                     
                                     <div className="relative rounded-md border-2 border-dashed border-input bg-white overflow-hidden h-40">
-                                        {/* Background Helper */}
                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                             {signatureImage ? (
                                                 <img src={signatureImage} alt="Signature" className="h-full object-contain opacity-50" />
@@ -303,7 +336,6 @@ function EventManagementPage() {
                                             )}
                                         </div>
                                         
-                                        {/* Drawing Surface */}
                                         <SignatureCanvas 
                                             ref={sigPadRef}
                                             penColor="black"
@@ -319,7 +351,6 @@ function EventManagementPage() {
                                         </Button>
                                     </div>
 
-                                    {/* Signature Upload Input */}
                                     <div className="flex items-center gap-2 mt-2">
                                         <Input type="file" accept="image/png" onChange={(e) => handleImageUpload(e, setSignatureImage)} className="text-xs" />
                                     </div>
@@ -363,15 +394,33 @@ function EventManagementPage() {
                                     ) : (
                                         filteredEvents.map((event) => {
                                             const isLoading = issueLoading === event._id;
-                                            const isFutureEvent = new Date(event.date).setHours(0,0,0,0) > new Date().setHours(0,0,0,0);
+                                            const eventDate = new Date(event.date);
+                                            const today = new Date();
+                                            eventDate.setHours(0, 0, 0, 0);
+                                            today.setHours(0, 0, 0, 0);
+                                            const isFutureEvent = eventDate.getTime() > today.getTime();
+
                                             return (
                                                 <TableRow key={event._id}>
                                                     <TableCell className="font-medium">{event.name}</TableCell>
                                                     <TableCell>{new Date(event.date).toLocaleDateString()}</TableCell>
                                                     <TableCell>{event.participants?.length || 0}</TableCell>
                                                     <TableCell>
-                                                        {isFutureEvent ? <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Upcoming</span> : (
-                                                            <Button onClick={() => handleIssueCertificates(event)} variant={event.certificatesIssued ? "outline" : "default"} size="sm" disabled={isLoading} className={event.certificatesIssued ? "text-green-600 border-green-600 hover:text-green-700" : "bg-blue-600 hover:bg-blue-700"}>
+                                                        {isFutureEvent ? (
+                                                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                                                                Upcoming
+                                                            </span>
+                                                        ) : (
+                                                            <Button
+                                                                onClick={() => handleIssueCertificates(event)}
+                                                                variant={event.certificatesIssued ? "outline" : "default"}
+                                                                size="sm"
+                                                                disabled={isLoading}
+                                                                className={event.certificatesIssued 
+                                                                    ? "text-green-600 border-green-600 hover:text-green-700 dark:hover:bg-green-900/20" 
+                                                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                                                                }
+                                                            >
                                                                 {isLoading ? 'Issuing...' : (event.certificatesIssued ? 'Issue to New' : 'Issue All')}
                                                             </Button>
                                                         )}

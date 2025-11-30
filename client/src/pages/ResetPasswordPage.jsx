@@ -1,11 +1,15 @@
+// client/src/pages/ResetPasswordPage.jsx
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../api';
+
+// UI
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, KeyRound } from "lucide-react";
 
 function ResetPasswordPage() {
     const { token } = useParams();
@@ -31,10 +35,13 @@ function ResetPasswordPage() {
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
-            <Card className="w-full max-w-sm">
-                <CardHeader>
-                    <CardTitle>Reset Password</CardTitle>
-                    <CardDescription>Enter your new password below.</CardDescription>
+            <Card className="w-full max-w-md shadow-lg">
+                <CardHeader className="text-center">
+                    <div className="mx-auto bg-blue-100 p-3 rounded-full w-fit mb-2">
+                        <KeyRound className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-2xl">Reset Password</CardTitle>
+                    <CardDescription>Enter a new secure password for your account.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {msg ? (
@@ -53,7 +60,10 @@ function ResetPasswordPage() {
                                 <Label>Confirm Password</Label>
                                 <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
                             </div>
-                            <Button type="submit" className="w-full" disabled={loading}>{loading ? 'Resetting...' : 'Reset Password'}</Button>
+                            <Button type="submit" className="w-full" disabled={loading}>
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                {loading ? 'Resetting...' : 'Reset Password'}
+                            </Button>
                         </form>
                     )}
                 </CardContent>

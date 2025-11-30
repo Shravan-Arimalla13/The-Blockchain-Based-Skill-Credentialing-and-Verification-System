@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-
+import { BrainCircuit } from "lucide-react";
 // --- SHADCN IMPORTS ---
 import { Button, buttonVariants } from "@/components/ui/button";
 import { 
@@ -95,7 +95,15 @@ const SuperAdminDashboard = ({ user }) => {
         { title: "Import Roster", desc: "Upload CSV to add students.", icon: Upload, link: "/admin/roster", color: "text-green-500", bg: "bg-green-500/10" },
         { title: "Manage Students", desc: "View registered students.", icon: Users, link: "/admin/students", color: "text-purple-500", bg: "bg-purple-500/10" },
         { title: "Manage Events", desc: "Create events & issue certs.", icon: Calendar, link: "/events", color: "text-orange-500", bg: "bg-orange-500/10" },
-        { title: "Analytics", desc: "View college statistics.", icon: BarChart, link: "/admin/analytics", color: "text-red-500", bg: "bg-red-500/10" }
+        { title: "Analytics", desc: "View college statistics.", icon: BarChart, link: "/admin/analytics", color: "text-red-500", bg: "bg-red-500/10" },
+        { 
+    title: "View Faculty List", 
+    desc: "See all registered department admins.", 
+    icon: Users, 
+    link: "/admin/faculty", 
+    color: "text-indigo-600", 
+    bg: "bg-indigo-100" 
+}
     ];
 
     return (
@@ -122,21 +130,30 @@ const SuperAdminDashboard = ({ user }) => {
     );
 };
 
+
+// Update FacultyDashboard component
 const FacultyDashboard = ({ user }) => (
     <Card>
         <CardHeader>
             <CardTitle>Welcome, Faculty {user.name}</CardTitle>
             <CardDescription>Department: {user.department}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link to="/events">
-                <Button className="w-full sm:w-auto">
-                    <Calendar className="mr-2 h-4 w-4" /> Manage Department Events
+                <Button className="w-full h-24 text-lg" variant="outline">
+                    <Calendar className="mr-2 h-6 w-6" /> Manage Events
                 </Button>
             </Link>
+            {/* NEW BUTTON */}
+          <Link to="/faculty/quiz"> {/* NEW CORRECT LINK */}
+    <Button className="w-full h-24 text-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-sm">
+        <BrainCircuit className="mr-2 h-6 w-6" /> Create AI Quiz
+    </Button>
+</Link>
         </CardContent>
     </Card>
 );
+
 
 const StudentDashboard = ({ user }) => {
     const [certificates, setCertificates] = useState([]);
@@ -192,18 +209,29 @@ const StudentDashboard = ({ user }) => {
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Profile Card */}
-                <Card className="flex-1">
-                    <CardHeader>
-                        <CardTitle>Student Profile</CardTitle>
-                        <CardDescription>USN: {user.usn} • {user.department}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Link to="/browse-events" className="text-primary hover:underline font-semibold flex items-center">
-                            <Search className="h-4 w-4 mr-2" /> Browse & Register for Events
-                        </Link>
-                    </CardContent>
-                </Card>
+                {/* In StudentDashboard component */}
+{/* ... inside the first Card ... */}
 
+<Card className="flex-1">
+    <CardHeader>
+        <CardTitle>Student Profile</CardTitle>
+        <CardDescription>USN: {user.usn} • {user.department}</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-3"> {/* Added space-y-3 for spacing */}
+        
+        {/* Existing Link */}
+        <Link to="/browse-events" className="text-primary hover:underline font-semibold flex items-center">
+            <Search className="h-4 w-4 mr-2" /> Browse & Register for Events
+        </Link>
+
+        {/* --- NEW LINK --- */}
+        <Link to="/profile" className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center text-sm">
+            <ExternalLink className="h-4 w-4 mr-2" /> View Gamified Profile & Badges
+        </Link>
+        {/* ---------------- */}
+
+    </CardContent>
+</Card>
                 {/* Wallet Card */}
                 <Card className="flex-1">
                     <CardHeader>

@@ -29,9 +29,15 @@ const eventSchema = new Schema({
     type: Boolean,
     default: false
 },
-
+// --- NEW FIELD: Department Scope ---
+    department: { type: String, required: true }, 
+    // -----------------------------------
     participants: [participantSchema] ,
-    // An array of participant objects
+    // An array of participant 
+    
+    // --- NEW FIELD ---
+    isPublic: { type: Boolean, default: false }, // True = Everyone sees it
+    // -----------------
 
     // --- NEW: CERTIFICATE DESIGN CONFIGURATION ---
     certificateConfig: {

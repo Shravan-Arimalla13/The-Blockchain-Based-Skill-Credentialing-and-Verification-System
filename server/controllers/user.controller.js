@@ -194,3 +194,17 @@ exports.saveWalletAddress = async (req, res) => {
         res.status(500).json({ message: 'Server error saving wallet.' });
     }
 };
+
+
+// In server/controllers/user.controller.js
+
+// --- Admin: Get All Faculty ---
+exports.getAllFaculty = async (req, res) => {
+    try {
+        const faculty = await User.find({ role: 'Faculty' }).select('-password');
+        res.json(faculty);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server Error');
+    }
+};

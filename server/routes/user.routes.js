@@ -8,7 +8,8 @@ const {
     addStudent,
     getAllStudents,
     deleteStudent ,// <-- Ensure this is imported
-    saveWalletAddress
+    saveWalletAddress,
+    getAllFaculty
 } = require('../controllers/user.controller');
 
 const authMiddleware = require('../middleware/auth.middleware');
@@ -39,6 +40,13 @@ router.get(
     '/students', 
     [authMiddleware, checkRole(['SuperAdmin', 'Faculty'])], 
     getAllStudents
+);
+
+// --- Faculty Management Routes ---
+router.get(
+    '/faculty', 
+    [authMiddleware, checkRole(['SuperAdmin'])], 
+    getAllFaculty
 );
 
 // Only SuperAdmin should probably be deleting students, 

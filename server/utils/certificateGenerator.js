@@ -29,10 +29,10 @@ exports.generateCertificatePDF = async (certificate, res) => {
     const deptHeader = config.headerDepartment || 'DEPARTMENT OF MASTER OF COMPUTER APPLICATIONS (MCA)';
     const certTitle = config.certificateTitle || 'CERTIFICATE OF PARTICIPATION';
     const eventType = config.eventType || 'Workshop';
-    const duration = config.eventDuration ? `${config.eventDuration} ` : ''; // Add space if exists
+    const duration = config.eventDuration ? `${config.eventDuration} ` : ''; 
     const signText = config.customSignatureText || 'Authorized Signature';
 
-    // Student Details (Fallbacks provided if user model update is pending)
+    // Student Details
     const studentBranch = certificate.studentDepartment || 'MCA'; 
     const studentSem = certificate.studentSemester || '1st'; 
 
@@ -53,8 +53,7 @@ exports.generateCertificatePDF = async (certificate, res) => {
     // --- 2. HEADER BLOCK ---
     let yPos = 60;
 
-    // Logo (Left Aligned or Centered Top)
-    // Let's keep it centered top for a clean academic look, pushing text down
+    // Logo (Centered Top)
     if (logoBuffer) {
         try {
             doc.image(logoBuffer, CX - 40, yPos, { width: 80 });
@@ -67,32 +66,32 @@ exports.generateCertificatePDF = async (certificate, res) => {
        .text(collegeName.toUpperCase(), 0, yPos, { align: 'center', width: W });
     yPos += 35;
 
-    // Address Line (Small, gray, wrapped)
+    // Address Line
     doc.font('Helvetica').fontSize(9).fillColor('#475569')
        .text(address, 60, yPos, { align: 'center', width: W - 120 });
-    yPos += 30; // Adjust based on address length
+    yPos += 30; 
 
     // Department Header
     doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000')
        .text(deptHeader, 0, yPos, { align: 'center', width: W });
     yPos += 40;
 
-    // Certificate Title (The Big Title)
-    doc.font('Helvetica-Bold').fontSize(32).fillColor('#b45309') // Dark Gold/Bronze color
+    // Certificate Title
+    doc.font('Helvetica-Bold').fontSize(32).fillColor('#b45309') 
        .text(certTitle, 0, yPos, { align: 'center', characterSpacing: 2 });
     yPos += 60;
 
     // --- 3. BODY TEXT ---
-    // Template: "This is to Certify that Mr/Ms {name} of {sem} semester {branch} has attended the {days} {event} on {date}"
     
     const dateStr = new Date(certificate.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     
     doc.font('Times-Roman').fontSize(18).fillColor('#0f172a').text('This is to Certify that Mr/Ms', 0, yPos, { align: 'center' });
     yPos += 30;
 
-    // Student Name (Highlighted)
+    // Student Name
     doc.font('Times-BoldItalic').fontSize(36).fillColor('#1e40af')
        .text(certificate.studentName, 0, yPos, { align: 'center' });
+    
     // Underline
     const nameW = doc.widthOfString(certificate.studentName);
     doc.lineWidth(1).strokeColor('#1e40af')
@@ -111,22 +110,43 @@ exports.generateCertificatePDF = async (certificate, res) => {
 
 
     // --- 4. FOOTER ---
-    
-    // QR Code (Left)
     const footerY = H - 130;
+    const sigX = W - 250;
+
+    // QR Code (Left)
     try {
         const qrUrl = await QRCode.toDataURL(`http://localhost:5173/verify/${certificate.certificateId}`);
         doc.image(qrUrl, 60, footerY, { width: 80 });
         doc.fontSize(9).font('Helvetica').text('Scan to Verify', 60, footerY + 85, { width: 80, align: 'center' });
     } catch (e) {}
 
-    // Signature (Right)
-    const sigX = W - 250;
+    // --- SIGNATURE LOGIC ---
     if (signatureBuffer) {
+        // OPTION A: User provided a signature image -> Draw it normally
         try { doc.image(signatureBuffer, sigX + 20, footerY - 10, { width: 140 }); } catch (e) {}
+        
+        // Draw line and text below it
+        doc.moveTo(sigX, footerY + 70).lineTo(sigX + 180, footerY + 70).lineWidth(1).strokeColor('black').stroke();
+        doc.fontSize(12).text(signText, sigX, footerY + 80, { width: 180, align: 'center' });
+    } else {
+        // OPTION B: No signature -> Draw a "Digital Seal"
+        doc.save();
+        
+        const sealX = sigX + 90;
+        const sealY = footerY + 40;
+        
+        // Gold Ring
+        doc.circle(sealX, sealY, 40).fillOpacity(0.05).fill('#d97706'); 
+        doc.circle(sealX, sealY, 36).lineWidth(2).strokeColor('#d97706').fillOpacity(0).stroke();
+        
+        // Seal Text
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#b45309').fillOpacity(1)
+           .text('DIGITALLY', sealX - 50, sealY - 12, { width: 100, align: 'center' });
+        doc.text('VERIFIED', sealX - 50, sealY, { width: 100, align: 'center' });
+        doc.font('Helvetica').fontSize(7).text('CredentialChain AI', sealX - 50, sealY + 15, { width: 100, align: 'center' });
+        
+        doc.restore();
     }
-    doc.moveTo(sigX, footerY + 70).lineTo(sigX + 180, footerY + 70).lineWidth(1).strokeColor('black').stroke();
-    doc.fontSize(12).text(signText, sigX, footerY + 80, { width: 180, align: 'center' });
 
     // --- ID ALIGNMENT FIX ---
     // Moved UP above the border

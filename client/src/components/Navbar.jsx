@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ModeToggle } from './ModeToggle'; 
 import { Button } from "./ui/button"; 
-import { GraduationCap, LayoutDashboard, LogOut, UserCircle } from "lucide-react"; 
+import { GraduationCap, LayoutDashboard, LogOut, UserCircle, BrainCircuit } from "lucide-react";
 
 const Navbar = () => {
     const { user, logout, isAuthenticated } = useAuth();
@@ -37,28 +37,58 @@ const Navbar = () => {
                         <ModeToggle />
 
                         {/* 2. Auth Buttons (Strictly Conditional) */}
-                        {isAuthenticated && user ? (
-                            // --- SHOW ONLY WHEN LOGGED IN ---
-                            <>
-                                <div className="hidden md:flex items-center text-sm text-muted-foreground mr-2 border-r pr-4 h-6">
-                                    <UserCircle className="h-4 w-4 mr-2" />
-                                    <span className="max-w-[100px] truncate">{user.name}</span>
-                                </div>
-                                
-                                <Link to="/dashboard">
-                                    <Button variant="ghost" size="sm" className="gap-2">
-                                        <LayoutDashboard className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Dashboard</span>
-                                    </Button>
-                                </Link>
-                                
-                                <Button onClick={handleLogout} variant="destructive" size="sm" className="gap-2">
-                                    <LogOut className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Logout</span>
-                                </Button>
-                            </>
-                        ) : (
-                            // --- SHOW ONLY WHEN LOGGED OUT ---
+{/* 2. Auth Buttons */}
+{isAuthenticated && user ? (
+        <>
+            {/* 1. User Profile Link (Clickable Name) */}
+            {/* 1. User Profile Link (Clickable Name) */}
+            {user.role === 'Student' ? (
+                <Link to="/profile" className="hidden md:flex items-center text-sm text-muted-foreground mr-2 border-r pr-4 h-6 hover:text-primary transition-colors">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    <span className="max-w-[100px] truncate font-medium">{user.name}</span>
+                </Link>
+            ) : (
+                // Non-clickable name for Admin/Faculty
+                <div className="hidden md:flex items-center text-sm text-muted-foreground mr-2 border-r pr-4 h-6 cursor-default">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    <span className="max-w-[100px] truncate font-medium">{user.name}</span>
+                </div>
+            )}
+
+            {/* 2. Quiz Links (Existing) */}
+            {(user.role === 'Faculty' || user.role === 'SuperAdmin') && (
+                <Link to="/faculty/quiz">
+                    <Button variant="ghost" size="sm" className="gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                        <BrainCircuit className="h-4 w-4" />
+                        <span className="hidden sm:inline">Create Quiz</span>
+                    </Button>
+                </Link>
+            )}
+
+            {user.role === 'Student' && (
+                <Link to="/student/quizzes">
+                    <Button variant="ghost" size="sm" className="gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
+                        <BrainCircuit className="h-4 w-4" />
+                        <span className="hidden sm:inline">Skill Quizzes</span>
+                    </Button>
+                </Link>
+            )}
+            
+            {/* 3. Dashboard Link */}
+            <Link to="/dashboard">
+                <Button variant="ghost" size="sm" className="gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                </Button>
+            </Link>
+            
+            {/* 4. Logout */}
+            <Button onClick={handleLogout} variant="destructive" size="sm" className="gap-2">
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
+            </Button>
+        </>
+    ) : (
                             <Link to="/login">
                                 <Button size="sm">Login</Button>
                             </Link>

@@ -8,28 +8,30 @@ const crypto = require('crypto');
 const { logActivity } = require('../utils/logger'); 
 
 // --- Create a new event (Admin or Faculty) ---
+// In server/controllers/event.controller.js
+
+// --- Create a new event (Scoped to Dept) ---
 exports.createEvent = async (req, res) => {
     try {
-        const { name, date, description, certificateConfig } = req.body;
+        const { name, date, description, certificateConfig, isPublic } = req.body; // <-- Accept isPublic
         
+        const userDept = req.user.department; 
+
         const newEvent = new Event({
             name,
             date,
             description,
             createdBy: req.user.id,
+            department: userDept,
+            isPublic: isPublic || false, // <-- Save it
             certificatesIssued: false,
             certificateConfig: certificateConfig 
         });
 
         const savedEvent = await newEvent.save();
-
-        // --- NEW: LOG THE ACTIVITY ---
-        await logActivity(
-            req.user, 
-            "EVENT_CREATED", 
-            `Created new event: "${name}"`
-        );
-        // -----------------------------
+        
+        // Log it (Optional)
+        // await logActivity(req.user, "EVENT_CREATED", `Created ${isPublic ? 'Public' : 'Private'} event: ${name}`);
 
         res.status(201).json(savedEvent);
     } catch (error) {
@@ -38,10 +40,22 @@ exports.createEvent = async (req, res) => {
     }
 };
 
-// --- Get all events (for Admin/Faculty panel) ---
+// --- Get events (Filtered by Role) ---
 exports.getAllEvents = async (req, res) => {
     try {
-        const events = await Event.find().populate('createdBy', 'name');
+        let query = {};
+
+        // SECURITY CHECK:
+        // If the user is 'Faculty', ONLY show events from their department.
+        // If 'SuperAdmin', show everything (query remains empty).
+        if (req.user.role === 'Faculty') {
+            query = { department: req.user.department };
+        }
+
+        const events = await Event.find(query)
+            .populate('createdBy', 'name')
+            .sort({ date: -1 }); // Sort newest first
+
         res.json(events);
     } catch (error) {
         console.error(error);
@@ -107,20 +121,35 @@ exports.registerForEvent = async (req, res) => {
 // --- Get all public events (for student browsing) ---
 exports.getPublicEvents = async (req, res) => {
     try {
+        const studentDept = req.user.department;
+        const studentEmail = req.user.email; // Current student
+
         const events = await Event.find({
-            // You could add filters here later, e.g., { isPublic: true }
+            $or: [{ isPublic: true }, { department: studentDept }]
         })
-        .select('name date description createdBy') // Only send public-safe data
+        .select('name date description createdBy isPublic department participants') // Need participants to check
         .populate('createdBy', 'name')
         .sort({ date: 1 }); 
 
-        res.json(events);
+        // Transform to hide other people's emails
+        const safeEvents = events.map(event => {
+            const isRegistered = event.participants.some(p => p.email === studentEmail);
+            return {
+                _id: event._id,
+                name: event.name,
+                date: event.date,
+                description: event.description,
+                createdBy: event.createdBy,
+                isRegistered: isRegistered, // <-- The flag we need
+                isPublic: event.isPublic
+            };
+        });
+
+        res.json(safeEvents);
     } catch (error) {
-        console.error(error);
         res.status(500).send('Server Error');
     }
 };
-
 // --- Register the LOGGED-IN student for an event ---
 exports.registerMeForEvent = async (req, res) => {
     try {
