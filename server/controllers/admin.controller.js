@@ -7,6 +7,7 @@ const csv = require('csv-parser'); // <-- IMPORT
 const stream = require('stream');
 const Event = require('../models/event.model');           // <-- ADD THIS
 const Certificate = require('../models/certificate.model'); // <-- ADD THIS
+const SystemLog = require('../models/systemLog.model'); // <-- IMPORT
 // ... (keep other imports like jwt, mailer, etc.)
 
 
@@ -123,68 +124,91 @@ exports.importStudentRoster = async (req, res) => {
 
 // In server/controllers/admin.controller.js
 
-// --- UPDATED: Analytics Data Endpoint ---
+// In server/controllers/admin.controller.js
+
+// In server/controllers/admin.controller.js
+
+// --- UPDATED ANALYTICS CONTROLLER ---
 exports.getAnalytics = async (req, res) => {
     try {
-        // 1. Get simple counts
+        // 1. Basic Counts
         const totalStudents = await User.countDocuments({ role: 'Student' });
         const totalEvents = await Event.countDocuments();
         const totalCerts = await Certificate.countDocuments();
 
-        // 2. Get certificates by department (Pie Chart data)
+        // --- NEW: CALCULATE VERIFICATION RATE ---
+        // Count how many certificates have been scanned at least once (> 0)
+        const verifiedCertsCount = await Certificate.countDocuments({ scanCount: { $gt: 0 } });
+        
+        // Calculate percentage (avoid division by zero)
+        const verificationRate = totalCerts > 0 
+            ? ((verifiedCertsCount / totalCerts) * 100).toFixed(1) 
+            : 0;
+        // ----------------------------------------
+
+        // 2. Charts Data (Department Distribution)
         const certsByDept = await Certificate.aggregate([
             {
-                $lookup: {
-                    from: 'users',
-                    localField: 'studentEmail',
-                    foreignField: 'email',
-                    as: 'student'
-                }
+                $lookup: { from: 'users', localField: 'studentEmail', foreignField: 'email', as: 'student' }
             },
             { $unwind: '$student' },
-            {
-                $group: {
-                    _id: '$student.department',
-                    count: { $sum: 1 }
-                }
-            },
-            {
-                $project: {
-                    name: '$_id',
-                    count: 1,
-                    _id: 0
-                }
-            }
+            { $group: { _id: '$student.department', count: { $sum: 1 } } },
+            { $project: { name: '$_id', value: '$count', _id: 0 } }
         ]);
 
-        // --- NEW: Get students by department (Bar Chart data) ---
-        const studentsByDept = await User.aggregate([
-            { $match: { role: 'Student' } }, // Only find students
-            {
-                $group: {
-                    _id: '$department', // Group by their department
-                    count: { $sum: 1 }   // Count them
-                }
-            },
-            {
-                $project: {
-                    name: '$_id',
-                    count: 1,
-                    _id: 0
-                }
-            },
-            { $sort: { count: -1 } } // Sort descending
+        // 3. Trends Data (Monthly)
+        const monthlyData = await Certificate.aggregate([
+            { $group: { _id: { $month: "$createdAt" }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
         ]);
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const trends = monthlyData.map(item => ({ name: monthNames[item._id - 1], total: item.count }));
+
+        // 4. Student Distribution (Bar Chart)
+        const studentsByDept = await User.aggregate([
+            { $match: { role: 'Student' } },
+            { $group: { _id: '$department', count: { $sum: 1 } } },
+            { $project: { name: '$_id', count: 1, _id: 0 } },
+            { $sort: { count: -1 } }
+        ]);
+
+        // 5. Recent Activity Logs
+        const recentLogs = await SystemLog.find().sort({ timestamp: -1 }).limit(10);
+
+        // --- NEW: 6. Detailed Certificate Report (Latest 50) ---
+        // ... inside getAnalytics function ...
+
+        // --- NEW: 4. Detailed Certificate Report (Latest 50) ---
+        // REMOVED .select() to ensure we get all data for now
+        const detailedReports = await Certificate.find()
+            .sort({ createdAt: -1 })
+            .limit(50);
+
+        console.log("DEBUG: Found detailedReports:", detailedReports.length); // <--- LOG 1
+
+        // --- NEW: 5. Blockchain Logs (Simulated from Cert Data) ---
+        const blockchainLogs = detailedReports.map(cert => ({
+            txHash: cert.transactionHash || 'Pending...',
+            method: 'MintCertificate', 
+            timestamp: cert.createdAt,
+            status: cert.transactionHash ? 'Success' : 'Failed'
+        }));
         
-        // --------------------------------------------------------
+        console.log("DEBUG: Generated blockchainLogs:", blockchainLogs.length); // <--- LOG 2
 
         res.status(200).json({
-            totalStudents,
-            totalEvents,
+            totalStudents, 
+            totalEvents, 
             totalCerts,
-            certsByDept,
-            studentsByDept // <-- Send the new data
+            verificationRate,
+            certsByDept, 
+            studentsByDept, 
+            trends, 
+            recentLogs,
+            detailedReports, 
+            blockchainLogs   
         });
+// ...
 
     } catch (error) {
         console.error('Analytics Error:', error);

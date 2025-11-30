@@ -6,8 +6,8 @@ const { nanoid } = require('nanoid');
 const crypto = require('crypto');
 const { mintNFT, isHashValid, revokeByHash } = require('../utils/blockchain');
 const { generateCertificatePDF } = require('../utils/certificateGenerator');
-// --- IMPORT MAILER ---
 const { sendCertificateIssued } = require('../utils/mailer'); 
+const { logActivity } = require('../utils/logger'); // <-- RESTORED THIS IMPORT
 
 // --- ISSUE SINGLE CERTIFICATE ---
 exports.issueSingleCertificate = async (req, res) => {
@@ -22,52 +22,33 @@ exports.issueSingleCertificate = async (req, res) => {
 
     try {
         const student = await User.findOne({ email: normalizedEmail });
-        if (!student) {
-            return res.status(404).json({ message: 'Student account not found.' });
-        }
-        if (!student.walletAddress) {
-            return res.status(400).json({ message: `Student (${student.name}) has not connected their wallet.` });
-        }
+        if (!student) return res.status(404).json({ message: 'Student account not found.' });
+        if (!student.walletAddress) return res.status(400).json({ message: `Student (${student.name}) has not connected their wallet.` });
 
         const existingCert = await Certificate.findOne({ eventName, studentEmail: normalizedEmail });
-        if (existingCert) {
-            return res.status(400).json({ message: 'Certificate already exists.' });
-        }
+        if (existingCert) return res.status(400).json({ message: 'Certificate already exists.' });
 
-        // 1. Create Hash
+        // 1. Hash & Mint
         const hashData = normalizedEmail + eventDate + eventName;
         const certificateHash = crypto.createHash('sha256').update(hashData).digest('hex');
-        
-        // 2. Mint NFT
         const { transactionHash, tokenId } = await mintNFT(student.walletAddress, certificateHash);
 
-        // 3. Save to DB
+        // 2. Save to DB
         const certificateId = `CERT-${nanoid(10)}`;
         const newCert = new Certificate({
-            certificateId,
-            tokenId,
-            certificateHash,
-            transactionHash,
-            studentName,
-            studentEmail: normalizedEmail,
-            eventName,
-            eventDate,
-            issuedBy: issuerId,
-            verificationUrl: `/verify/${certificateId}`
+            certificateId, tokenId, certificateHash, transactionHash,
+            studentName, studentEmail: normalizedEmail, eventName, eventDate,
+            issuedBy: issuerId, verificationUrl: `/verify/${certificateId}`
         });
-
         await newCert.save();
 
-        // 4. Send Email (Restored!)
-        console.log("Sending email to:", normalizedEmail);
-        await sendCertificateIssued(
-            normalizedEmail, 
-            studentName, 
-            eventName, 
-            certificateId
-        );
+        // 3. Send Email
+        await sendCertificateIssued(normalizedEmail, studentName, eventName, certificateId);
 
-        res.status(201).json({ message: 'NFT Issued & Email Sent ✅', certificate: newCert });
+        // 4. Log Activity (RESTORED!)
+        await logActivity(req.user, "CERTIFICATE_ISSUED", `Issued NFT to ${studentName} for ${eventName}`);
+
+        res.status(201).json({ message: 'NFT Issued & Logged ✅', certificate: newCert });
 
     } catch (error) {
         console.error('Error issuing single certificate:', error.message);
@@ -75,7 +56,7 @@ exports.issueSingleCertificate = async (req, res) => {
     }
 };
 
-// --- ISSUE EVENT CERTIFICATES ---
+// --- ISSUE EVENT CERTIFICATES (BULK) ---
 exports.issueEventCertificates = async (req, res) => {
     const eventId = req.params.eventId;
     const issuerId = req.user.id;
@@ -89,16 +70,15 @@ exports.issueEventCertificates = async (req, res) => {
         
         for (const participant of event.participants) {
             const normalizedEmail = participant.email.toLowerCase();
-
             const student = await User.findOne({ email: normalizedEmail });
+            
             if (!student || !student.walletAddress) {
                 errors.push(`Skipped ${participant.name}: Wallet not connected.`);
                 skippedCount++;
                 continue;
             }
 
-            const existingCert = await Certificate.findOne({ eventName: event.name, studentEmail: normalizedEmail });
-            if (existingCert) {
+            if (await Certificate.findOne({ eventName: event.name, studentEmail: normalizedEmail })) {
                 skippedCount++;
                 continue;
             }
@@ -107,34 +87,18 @@ exports.issueEventCertificates = async (req, res) => {
             const certificateHash = crypto.createHash('sha256').update(hashData).digest('hex');
 
             try {
-                // 1. Mint NFT
                 const { transactionHash, tokenId } = await mintNFT(student.walletAddress, certificateHash);
-
-                // 2. Save DB
                 const certificateId = `CERT-${nanoid(10)}`;
+                
                 const newCert = new Certificate({
-                    certificateId,
-                    tokenId,
-                    certificateHash,
-                    transactionHash,
-                    studentName: participant.name,
-                    studentEmail: normalizedEmail,
-                    eventName: event.name,
-                    eventDate: event.date,
-                    issuedBy: issuerId,
-                    verificationUrl: `/verify/${certificateId}`
+                    certificateId, tokenId, certificateHash, transactionHash,
+                    studentName: participant.name, studentEmail: normalizedEmail,
+                    eventName: event.name, eventDate: event.date,
+                    issuedBy: issuerId, verificationUrl: `/verify/${certificateId}`
                 });
-
                 await newCert.save();
-
-                // 3. Send Email (Restored!)
-                sendCertificateIssued(
-                    normalizedEmail, 
-                    participant.name, 
-                    event.name, 
-                    certificateId
-                );
-
+                sendCertificateIssued(normalizedEmail, participant.name, event.name, certificateId);
+                
                 issuedCount++;
             } catch (mintError) {
                 errors.push(`Failed ${participant.name}: ${mintError.message}`);
@@ -144,18 +108,42 @@ exports.issueEventCertificates = async (req, res) => {
 
         event.certificatesIssued = true;
         await event.save();
-        
-        res.status(201).json({ 
-            message: `Successfully issued ${issuedCount} NFTs. Skipped ${skippedCount}.`,
-            errors: errors
-        });
+
+        // --- Log Activity (RESTORED!) ---
+        if (issuedCount > 0) {
+            await logActivity(req.user, "BULK_ISSUE", `Issued ${issuedCount} NFTs for event: ${event.name}`);
+        }
+
+        res.status(201).json({ message: `Successfully issued ${issuedCount} NFTs.`, errors });
     } catch (error) {
         console.error(error);
         res.status(500).send('Server Error');
     }
 };
 
-// --- VERIFY CERTIFICATE ---
+// --- REVOKE CERTIFICATE ---
+exports.revokeCertificate = async (req, res) => {
+    const { certificateId } = req.body;
+    try {
+        const certificate = await Certificate.findOne({ certificateId: certificateId });
+        if (!certificate) return res.status(404).json({ message: 'Certificate not found.' });
+
+        await revokeByHash(certificate.certificateHash);
+        
+        // --- Log Activity (RESTORED!) ---
+        await logActivity(req.user, "CERTIFICATE_REVOKED", `Revoked certificate ID: ${certificateId}`);
+
+        res.status(200).json({ message: 'Certificate revoked on blockchain.' });
+    } catch (error) {
+        console.error('Revocation failed:', error);
+        res.status(500).json({ message: 'Server error during revocation.' });
+    }
+};
+
+// --- GETTERS (No logging needed) ---
+// In server/controllers/certificate.controller.js
+
+// --- VERIFY CERTIFICATE (UPGRADED WITH IMAGES) ---
 exports.verifyCertificate = async (req, res) => {
     function escapeRegExp(string) {
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -173,6 +161,16 @@ exports.verifyCertificate = async (req, res) => {
             return res.status(404).json({ message: 'Certificate not found or invalid.' });
         }
 
+        // --- NEW: Fetch Event Design Config ---
+        // We need this to get the Logo and Signature
+        const event = await Event.findOne({ name: certificate.eventName });
+        const config = event?.certificateConfig || {};
+        // --------------------------------------
+
+        // Increment Scan Count
+        certificate.scanCount += 1;
+        await certificate.save();
+
         const { exists, isRevoked } = await isHashValid(certificate.certificateHash);
 
         res.json({
@@ -185,66 +183,35 @@ exports.verifyCertificate = async (req, res) => {
             transactionHash: certificate.transactionHash,
             certificateId: certificate.certificateId,
             isBlockchainVerified: exists,
-            isRevoked: isRevoked
+            isRevoked: isRevoked,
+            // --- PASS CONFIG TO FRONTEND ---
+            design: {
+                logo: config.collegeLogo,
+                signature: config.signatureImage,
+                collegeName: config.collegeName,
+                title: config.certificateTitle,
+                dept: config.headerDepartment
+            }
         });
     } catch (error) {
         console.error(error);
         res.status(500).send('Server Error');
     }
 };
-
-// --- REVOKE CERTIFICATE ---
-exports.revokeCertificate = async (req, res) => {
-    const { certificateId } = req.body;
-    try {
-        const certificate = await Certificate.findOne({ certificateId: certificateId });
-        if (!certificate) {
-            return res.status(404).json({ message: 'Certificate not found.' });
-        }
-
-        await revokeByHash(certificate.certificateHash);
-        
-        res.status(200).json({ message: 'Certificate successfully revoked on the blockchain.' });
-    } catch (error) {
-        console.error('Revocation failed:', error);
-        res.status(500).json({ message: 'Server error during revocation.' });
-    }
-};
-
-// --- GET MY CERTIFICATES ---
 exports.getMyCertificates = async (req, res) => {
     try {
-        const userEmail = req.user.email; 
-        const certificates = await Certificate.find({ studentEmail: userEmail })
-            .populate('issuedBy', 'name') 
-            .sort({ eventDate: -1 });
+        const certificates = await Certificate.find({ studentEmail: req.user.email }).populate('issuedBy', 'name').sort({ eventDate: -1 });
         res.json(certificates);
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Server Error');
-    }
+    } catch (error) { res.status(500).send('Server Error'); }
 };
 
-// --- DOWNLOAD PDF ---
 exports.downloadCertificate = async (req, res) => {
     try {
-        const { certId } = req.params;
-        const certificate = await Certificate.findOne({ certificateId: certId }).populate('issuedBy', 'name');
+        const certificate = await Certificate.findOne({ certificateId: req.params.certId }).populate('issuedBy', 'name');
         if (!certificate) return res.status(404).json({ message: 'Certificate not found' });
-
         const event = await Event.findOne({ name: certificate.eventName });
         const studentUser = await User.findOne({ email: certificate.studentEmail });
-
-        const certData = {
-            ...certificate.toObject(),
-            config: event?.certificateConfig || {},
-            studentDepartment: studentUser?.department || 'N/A',
-            studentSemester: studentUser?.semester || '___' 
-        };
-
+        const certData = { ...certificate.toObject(), config: event?.certificateConfig || {}, studentDepartment: studentUser?.department || 'N/A', studentSemester: studentUser?.semester || '___' };
         await generateCertificatePDF(certData, res); 
-    } catch (error) {
-        console.error('PDF Generation Error:', error);
-        res.status(500).send('Server Error');
-    }
+    } catch (error) { res.status(500).send('Server Error'); }
 };

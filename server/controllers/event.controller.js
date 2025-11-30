@@ -4,12 +4,12 @@ const User = require('../models/user.model');
 const Certificate = require('../models/certificate.model');
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
-
+// --- IMPORT LOGGER ---
+const { logActivity } = require('../utils/logger'); 
 
 // --- Create a new event (Admin or Faculty) ---
 exports.createEvent = async (req, res) => {
     try {
-        // 1. Extract 'certificateConfig' from the request body
         const { name, date, description, certificateConfig } = req.body;
         
         const newEvent = new Event({
@@ -18,11 +18,19 @@ exports.createEvent = async (req, res) => {
             description,
             createdBy: req.user.id,
             certificatesIssued: false,
-            // 2. SAVE THE CONFIG TO THE DATABASE
             certificateConfig: certificateConfig 
         });
 
         const savedEvent = await newEvent.save();
+
+        // --- NEW: LOG THE ACTIVITY ---
+        await logActivity(
+            req.user, 
+            "EVENT_CREATED", 
+            `Created new event: "${name}"`
+        );
+        // -----------------------------
+
         res.status(201).json(savedEvent);
     } catch (error) {
         console.error(error);
@@ -96,7 +104,7 @@ exports.registerForEvent = async (req, res) => {
     }
 };
 
-// --- THIS IS THE FUNCTION WE'VE BEEN TRYING TO ADD ---
+// --- Get all public events (for student browsing) ---
 exports.getPublicEvents = async (req, res) => {
     try {
         const events = await Event.find({

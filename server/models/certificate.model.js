@@ -44,6 +44,11 @@ const certificateSchema = new mongoose.Schema({
     verificationUrl: {
         type: String,
         required: true
+    },
+    // --- ADD THIS NEW FIELD ---
+    scanCount: {
+        type: Number,
+        default: 0 // Starts at 0
     }
 }, { timestamps: true });
 
