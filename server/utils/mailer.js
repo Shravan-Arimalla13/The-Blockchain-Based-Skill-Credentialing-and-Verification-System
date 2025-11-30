@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
 exports.sendFacultyInvite = async (email, token) => {
     // This is the link the faculty will click
     // We'll build this page in the next step.
-    const inviteLink = `http://localhost:5173/claim-invite/${token}`;
+    const inviteLink = `https://the-blockchain-based-skill-credenti.vercel.app/claim-invite/${token}`;
 
     const mailOptions = {
         from: `"Project Credentialing" <${process.env.EMAIL_HOST_USER}>`,
@@ -49,7 +49,7 @@ exports.sendFacultyInvite = async (email, token) => {
 // --- NEW FUNCTION ---
 exports.sendStudentActivation = async (email, token) => {
     // This is the link the student will click
-    const activationLink = `http://localhost:5173/activate-account/${token}`;
+    const activationLink = `https://the-blockchain-based-skill-credenti.vercel.app/activate-account/${token}`;
 
     const mailOptions = {
         from: `"Project Credentialing" <${process.env.EMAIL_HOST_USER}>`,
@@ -82,9 +82,9 @@ exports.sendStudentActivation = async (email, token) => {
 // --- NEW FUNCTION: Send Certificate Notification ---
 exports.sendCertificateIssued = async (email, studentName, eventName, certificateId) => {
     // Link to the public verification page
-    const verifyLink = `https://my-project.vercel.app/verify/${certificateId}`; // We will update this domain later
+    const verifyLink = `https://the-blockchain-based-skill-credenti.vercel.app/verify/${certificateId}`; // We will update this domain later
     // For local testing use:
-    const localLink = `http://localhost:5173/verify/${certificateId}`;
+    const localLink = `https://the-blockchain-based-skill-credenti.vercel.app/verify/${certificateId}`;
 
     const mailOptions = {
         from: `"CredentialChain System" <${process.env.EMAIL_HOST_USER}>`,
@@ -126,7 +126,7 @@ exports.sendCertificateIssued = async (email, studentName, eventName, certificat
 
 // --- NEW: Send Password Reset Link ---
 exports.sendPasswordReset = async (email, token) => {
-    const resetLink = `http://localhost:5173/reset-password/${token}`;
+    const resetLink = `https://the-blockchain-based-skill-credenti.vercel.app/reset-password/${token}`;
 
     const mailOptions = {
         from: `"CredentialChain Security" <${process.env.EMAIL_HOST_USER}>`,
