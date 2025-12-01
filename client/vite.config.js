@@ -5,7 +5,7 @@ import jsconfigPaths from 'vite-jsconfig-paths'
 
 export default defineConfig({
   plugins: [react(), jsconfigPaths(),tailwindcss()],
-  base: './', // <--- ADD THIS: Ensures assets load correctly with HashRouter
+  base: '/', // <--- ADD THIS: Ensures assets load correctly with HashRouter
   server: {
     host: true,
     port: 5173

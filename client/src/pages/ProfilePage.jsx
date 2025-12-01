@@ -99,13 +99,22 @@ function ProfilePage() {
                                     </Button>
                                     
                                     {/* Smart Share Button */}
-                                    <Button variant="ghost" size="icon" className="text-blue-600">
-                                        <Share2 className="h-4 w-4" onClick={() => {
-                                            const text = `I just earned a certificate for ${cert.eventName}! Verify it here:`;
-                                            const url = `http://localhost:5173/verify/${cert.certificateId}`;
-                                            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
-                                        }}/>
-                                    </Button>
+                                    {/* Smart Share Button */}
+<Button variant="ghost" size="icon" className="text-blue-600" onClick={() => {
+    const shareText = `I just earned a verified blockchain credential for ${cert.eventName} from ${cert.issuedBy?.name || 'my college'}! 🎓 Verify it here:`;
+    const verifyUrl = `https://the-blockchain-based-skill-credenti.vercel.app/verify/${cert.certificateId}`;
+    
+    // Construct Twitter/X URL
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(verifyUrl)}`;
+    
+    // Construct LinkedIn URL (LinkedIn only takes 'url')
+    const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(verifyUrl)}`;
+
+    // Open in new tab (User choice: let's default to LinkedIn as it's professional)
+    window.open(linkedinUrl, '_blank', 'noopener,noreferrer');
+}}>
+    <Share2 className="h-4 w-4" />
+</Button>
                                 </div>
                             </CardContent>
                         </Card>
