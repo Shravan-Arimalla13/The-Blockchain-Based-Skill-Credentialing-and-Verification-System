@@ -29,7 +29,9 @@ exports.createQuiz = async (req, res) => {
         const newQuiz = new Quiz({
             topic, description, totalQuestions, passingScore,
             createdBy: req.user.id,
-            department: userDept
+           // --- FIX: FORCE UPPERCASE ---
+            department: (req.user.department || 'General').toUpperCase() 
+            // ----------------------------
         });
         await newQuiz.save();
 
