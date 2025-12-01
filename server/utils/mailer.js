@@ -5,18 +5,15 @@ const nodemailer = require('nodemailer');
 // We're using Gmail, but this could be SendGrid, etc.
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp-relay.brevo.com', // <--- CHANGE THIS
     port: 587,
-    secure: false, // Must be false for port 587
+    secure: false,
     auth: {
         user: process.env.EMAIL_HOST_USER,
         pass: process.env.EMAIL_HOST_PASSWORD,
     },
-    tls: {
-        rejectUnauthorized: false,
-        ciphers: "SSLv3"
-    },
-    family: 4 // <--- THIS IS THE CRITICAL FIX FOR RENDER
+    tls: { rejectUnauthorized: false },
+    family: 4
 });
 
 // ... rest of your file (sendFacultyInvite, etc.)
