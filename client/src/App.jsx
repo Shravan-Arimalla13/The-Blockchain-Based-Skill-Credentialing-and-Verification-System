@@ -1,6 +1,5 @@
 // In client/src/App.jsx
 import React, { Suspense } from 'react';
-// --- CHANGE: Back to BrowserRouter ---
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner"; 
 
@@ -32,10 +31,13 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const AdminAnalyticsPage = React.lazy(() => import('./pages/AdminAnalyticsPage'));
 const StudentSetPasswordPage = React.lazy(() => import('./pages/StudentSetPasswordPage'));
 const FacultyManagementPage = React.lazy(() => import('./pages/FacultyManagementPage'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage')); // <-- ADD THIS IMPORT
+const VerifierPortalPage = React.lazy(() => import('./pages/VerifierPortalPage')); // Ensure Verifier is imported too
 
 function App() {
   return (
     <Router>
+      {/* Navbar sits OUTSIDE of Routes so it appears on every page */}
       <Navbar />
       
       <Suspense fallback={<Loading />}>
@@ -48,6 +50,7 @@ function App() {
           <Route path="/event/:id" element={<PublicEventPage />} />
           <Route path="/verify" element={<VerificationPage />} />
           <Route path="/verify/:certId" element={<VerificationPage />} />
+          <Route path="/verifier" element={<VerifierPortalPage />} /> {/* Ensure Verifier route is here */}
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/" element={<LoginPage />} />
@@ -59,6 +62,18 @@ function App() {
               <ProtectedRoute>
                 <ErrorBoundary>
                   <DashboardPage />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* --- NEW PROFILE ROUTE --- */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ErrorBoundary>
+                  <ProfilePage />
                 </ErrorBoundary>
               </ProtectedRoute>
             } 
