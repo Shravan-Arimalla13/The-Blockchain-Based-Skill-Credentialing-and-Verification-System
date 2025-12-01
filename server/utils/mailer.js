@@ -1,9 +1,6 @@
 // In server/utils/mailer.js
 const nodemailer = require('nodemailer');
 
-// 1. Create the "transporter" (the mail truck)
-// We're using Gmail, but this could be SendGrid, etc.
-
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
@@ -16,14 +13,16 @@ const transporter = nodemailer.createTransport({
         rejectUnauthorized: false,
         ciphers: "SSLv3"
     },
-    family: 4 // <--- THIS IS THE CRITICAL FIX FOR RENDER
+    family: 4, // Force IPv4
+    // --- SPEED UP FAILURES ---
+    connectionTimeout: 2000, // Fail after 2 seconds if can't connect
+    greetingTimeout: 2000,   // Fail if greeting takes > 2s
+    socketTimeout: 3000      // Fail if data transfer hangs > 3s
 });
 
-// ... rest of your file (sendFacultyInvite, etc.)
 // 2. A function to send the faculty invite email
 exports.sendFacultyInvite = async (email, token) => {
-    // This is the link the faculty will click
-    // We'll build this page in the next step.
+    // UPDATE THIS URL TO YOUR VERCEL DOMAIN
     const inviteLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/claim-invite/${token}`;
 
     const mailOptions = {
@@ -45,19 +44,15 @@ exports.sendFacultyInvite = async (email, token) => {
         await transporter.sendMail(mailOptions);
         console.log('Invite email sent to:', email);
     } catch (error) {
-        console.error('Error sending email:', error);
-        throw new Error('Email sending failed');
+        console.error('Error sending email:', error.message);
+        // Throwing allows the controller to catch it, but for failsafe speed we can just log
+        throw new Error('Email sending failed'); 
     }
 };
 
-
-
-// In server/utils/mailer.js
-// ... (keep the transporter and sendFacultyInvite)
-
 // --- NEW FUNCTION ---
 exports.sendStudentActivation = async (email, token) => {
-    // This is the link the student will click
+    // UPDATE THIS URL TO YOUR VERCEL DOMAIN
     const activationLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/activate-account/${token}`;
 
     const mailOptions = {
@@ -79,21 +74,15 @@ exports.sendStudentActivation = async (email, token) => {
         await transporter.sendMail(mailOptions);
         console.log('Student activation email sent to:', email);
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('Error sending email:', error.message);
         throw new Error('Email sending failed');
     }
 };
 
-
-
-
-
 // --- NEW FUNCTION: Send Certificate Notification ---
 exports.sendCertificateIssued = async (email, studentName, eventName, certificateId) => {
     // Link to the public verification page
-    const verifyLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/verify/${certificateId}`; // We will update this domain later
-    // For local testing use:
-    const localLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/verify/${certificateId}`;
+    const verifyLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/verify/${certificateId}`; 
 
     const mailOptions = {
         from: `"CredentialChain System" <${process.env.EMAIL_HOST_USER}>`,
@@ -111,7 +100,7 @@ exports.sendCertificateIssued = async (email, studentName, eventName, certificat
 
                 <p>This certificate has been secured on the blockchain as a permanent NFT.</p>
 
-                <a href="${localLink}" style="display: inline-block; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
                     View & Verify Certificate
                 </a>
 
@@ -126,12 +115,10 @@ exports.sendCertificateIssued = async (email, studentName, eventName, certificat
         await transporter.sendMail(mailOptions);
         console.log(`Certificate email sent to: ${email}`);
     } catch (error) {
-        console.error('Error sending certificate email:', error);
+        console.error('Error sending certificate email:', error.message);
         // We don't throw an error here because we don't want to crash the whole issuing process just because an email failed.
     }
 };
-
-
 
 // --- NEW: Send Password Reset Link ---
 exports.sendPasswordReset = async (email, token) => {
@@ -156,6 +143,6 @@ exports.sendPasswordReset = async (email, token) => {
         await transporter.sendMail(mailOptions);
         console.log('Reset email sent to:', email);
     } catch (error) {
-        console.error('Error sending reset email:', error);
+        console.error('Error sending reset email:', error.message);
     }
-};
+};  
