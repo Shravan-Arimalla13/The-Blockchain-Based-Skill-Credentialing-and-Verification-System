@@ -1,7 +1,7 @@
 // In client/src/App.jsx
 import React, { Suspense } from 'react';
-// --- CHANGE 1: Import HashRouter instead of BrowserRouter ---
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+// --- CHANGE: Back to BrowserRouter ---
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner"; 
 
 // --- Component Imports ---
@@ -43,8 +43,6 @@ function App() {
           {/* --- Public Routes --- */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/activate" element={<StudentActivationPage />} />
-          
-          {/* Routes remain exactly the same */}
           <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
           <Route path="/claim-invite/:token" element={<ClaimInvitePage />} />
           <Route path="/event/:id" element={<PublicEventPage />} />

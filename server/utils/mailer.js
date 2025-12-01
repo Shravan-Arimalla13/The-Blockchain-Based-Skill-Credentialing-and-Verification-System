@@ -1,10 +1,11 @@
 // In server/utils/mailer.js
 const nodemailer = require('nodemailer');
 
+// Professional configuration for Render/Cloud hosting
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp.gmail.com', // Or 'smtp-relay.brevo.com' if you switched
     port: 587,
-    secure: false, // Must be false for port 587
+    secure: false, // Must be false for port 587 (TLS)
     auth: {
         user: process.env.EMAIL_HOST_USER,
         pass: process.env.EMAIL_HOST_PASSWORD,
@@ -13,81 +14,81 @@ const transporter = nodemailer.createTransport({
         rejectUnauthorized: false,
         ciphers: "SSLv3"
     },
-    family: 4, // Force IPv4
-    // --- SPEED UP FAILURES ---
-    connectionTimeout: 2000, // Fail after 2 seconds if can't connect
-    greetingTimeout: 2000,   // Fail if greeting takes > 2s
-    socketTimeout: 3000      // Fail if data transfer hangs > 3s
+    family: 4, // Force IPv4 to prevent Gmail timeouts on cloud servers
+    connectionTimeout: 10000, 
+    greetingTimeout: 5000,   
+    socketTimeout: 10000      
 });
 
-// 2. A function to send the faculty invite email
+// --- IMPORTANT: UPDATE THIS TO YOUR REAL VERCEL DOMAIN ---
+// Ensure there is NO trailing slash at the end
+const BASE_URL = "https://the-blockchain-based-skill-credenti.vercel.app";
+
+// --- Faculty Invite ---
 exports.sendFacultyInvite = async (email, token) => {
-    // UPDATE THIS URL TO YOUR VERCEL DOMAIN
-    const inviteLink = `https://the-blockchain-based-skill-credenti.vercel.app/claim-invite/${token}`;
+    const inviteLink = `${BASE_URL}/claim-invite/${token}`;
 
     const mailOptions = {
         from: `"Project Credentialing" <${process.env.EMAIL_HOST_USER}>`,
         to: email,
-        subject: 'You have been invited to join Project Credentialing',
+        subject: 'Invitation to Project Credentialing',
         html: `
-            <h1>Welcome!</h1>
-            <p>You have been invited to join the platform as a Faculty (Department Admin).</p>
-            <p>Please click the link below to set up your account. This link is valid for 24 hours.</p>
-            <a href="${inviteLink}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
-                Click Here to Activate Your Account
-            </a>
-            <p>If you did not request this, please ignore this email.</p>
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                <h1>Welcome!</h1>
+                <p>You have been invited to join the platform as a Faculty (Department Admin).</p>
+                <p>Please click the link below to set up your account.</p>
+                <a href="${inviteLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">
+                    Click Here to Activate Your Account
+                </a>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
         `,
     };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log('Invite email sent to:', email);
-    } catch (error) {
-        console.error('Error sending email:', error.message);
-        // Throwing allows the controller to catch it, but for failsafe speed we can just log
-        throw new Error('Email sending failed'); 
+    try { 
+        await transporter.sendMail(mailOptions); 
+        console.log(`Invite email sent to: ${email}`);
+    } catch (e) { 
+        console.error("Email Error:", e.message); 
     }
 };
 
-// --- NEW FUNCTION ---
+// --- Student Activation ---
 exports.sendStudentActivation = async (email, token) => {
-    // UPDATE THIS URL TO YOUR VERCEL DOMAIN
-    const activationLink = `https://the-blockchain-based-skill-credenti.vercel.app/activate-account/${token}`;
+    const activationLink = `${BASE_URL}/activate-account/${token}`;
 
     const mailOptions = {
         from: `"Project Credentialing" <${process.env.EMAIL_HOST_USER}>`,
         to: email,
-        subject: 'Activate Your Project Credentialing Account',
+        subject: 'Activate Your Student Account',
         html: `
-            <h1>Welcome, Student!</h1>
-            <p>Your account is ready to be activated. Please click the link below to set your password.</p>
-            <p>This link is valid for 24 hours.</p>
-            <a href="${activationLink}" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
-                Click Here to Set Your Password
-            </a>
-            <p>If you did not request this, please ignore this email.</p>
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                <h1>Welcome, Student!</h1>
+                <p>Your account is ready to be activated. Please click the link below to set your password.</p>
+                <p>This link is valid for 24 hours.</p>
+                <a href="${activationLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">
+                    Set Password & Activate
+                </a>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
         `,
     };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log('Student activation email sent to:', email);
-    } catch (error) {
-        console.error('Error sending email:', error.message);
-        throw new Error('Email sending failed');
+    try { 
+        await transporter.sendMail(mailOptions); 
+        console.log(`Activation email sent to: ${email}`);
+    } catch (e) { 
+        console.error("Email Error:", e.message); 
+        throw e; // Rethrow so the controller knows to show the debug link
     }
 };
 
-// --- NEW FUNCTION: Send Certificate Notification ---
+// --- Certificate Issued ---
 exports.sendCertificateIssued = async (email, studentName, eventName, certificateId) => {
-    // Link to the public verification page
-    const verifyLink = `https://the-blockchain-based-skill-credenti.vercel.app/verify/${certificateId}`; 
+    const verifyLink = `${BASE_URL}/verify/${certificateId}`;
 
     const mailOptions = {
         from: `"CredentialChain System" <${process.env.EMAIL_HOST_USER}>`,
         to: email,
-        subject: `Start Your Career: New Certificate Earned for ${eventName}`,
+        subject: `Certificate Earned: ${eventName}`,
         html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                 <h2 style="color: #2563eb;">Congratulations, ${studentName}!</h2>
@@ -103,46 +104,41 @@ exports.sendCertificateIssued = async (email, studentName, eventName, certificat
                 <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
                     View & Verify Certificate
                 </a>
-
-                <p style="margin-top: 20px; font-size: 12px; color: #888;">
-                    You can also view this in your Student Dashboard or your Web3 Wallet.
-                </p>
             </div>
         `,
     };
-
-    try {
-        await transporter.sendMail(mailOptions);
+    try { 
+        await transporter.sendMail(mailOptions); 
         console.log(`Certificate email sent to: ${email}`);
-    } catch (error) {
-        console.error('Error sending certificate email:', error.message);
-        // We don't throw an error here because we don't want to crash the whole issuing process just because an email failed.
+    } catch (e) { 
+        console.error("Email Error:", e.message); 
     }
 };
 
-// --- NEW: Send Password Reset Link ---
+// --- Password Reset ---
 exports.sendPasswordReset = async (email, token) => {
-    const resetLink = `https://the-blockchain-based-skill-credenti.vercel.app/reset-password/${token}`;
+    const resetLink = `${BASE_URL}/reset-password/${token}`;
 
     const mailOptions = {
         from: `"CredentialChain Security" <${process.env.EMAIL_HOST_USER}>`,
         to: email,
         subject: 'Reset Your Password',
         html: `
-            <h3>Password Reset Request</h3>
-            <p>You requested a password reset for your CredentialChain account.</p>
-            <p>Click the link below to set a new password. This link expires in 15 minutes.</p>
-            <a href="${resetLink}" style="padding: 10px 15px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 5px;">
-                Reset Password
-            </a>
-            <p>If you did not request this, please ignore this email.</p>
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                <h3>Password Reset Request</h3>
+                <p>You requested a password reset for your CredentialChain account.</p>
+                <p>Click the link below to set a new password. This link expires in 15 minutes.</p>
+                <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 5px;">
+                    Reset Password
+                </a>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
         `,
     };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log('Reset email sent to:', email);
-    } catch (error) {
-        console.error('Error sending reset email:', error.message);
+    try { 
+        await transporter.sendMail(mailOptions); 
+        console.log(`Reset email sent to: ${email}`);
+    } catch (e) { 
+        console.error("Email Error:", e.message); 
     }
-};  
+};
