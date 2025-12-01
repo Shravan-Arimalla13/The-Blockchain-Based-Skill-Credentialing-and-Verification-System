@@ -102,8 +102,10 @@ exports.addStudent = async (req, res) => {
         const newRosterEntry = new StudentRoster({
             name,
             email: emailLower,
-            usn: usnLower,
-            department,
+            // --- FIX: FORCE UPPERCASE ---
+            usn: usn.toUpperCase(),
+            department: department.toUpperCase(),
+            // ----------------------------
             semester, // <-- 2. ADD IT HERE
             year: new Date().getFullYear() 
         });

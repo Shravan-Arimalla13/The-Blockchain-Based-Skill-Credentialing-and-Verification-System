@@ -96,8 +96,10 @@ exports.importStudentRoster = async (req, res) => {
                     const newRosterEntry = new StudentRoster({
                         name,
                         email: emailLower,
-                        usn: usnLower,
-                        department,
+                        // --- FIX: FORCE UPPERCASE ---
+                        usn: usn.toUpperCase(), // usnLower was previously used, switch to Upper
+                        department: department.toUpperCase(),
+                        // ----------------------------
                         year: parseInt(year),
                         semester // <-- ADDED HERE
                     });

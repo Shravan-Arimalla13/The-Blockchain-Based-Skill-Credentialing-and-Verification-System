@@ -179,8 +179,10 @@ exports.activateStudentAccount = async (req, res) => {
         const newUser = new User({
             name: rosterEntry.name,
             email: rosterEntry.email,
-            usn: rosterEntry.usn,
-            department: rosterEntry.department,
+            // --- FIX: FORCE UPPERCASE ---
+                usn: rosterEntry.usn.toUpperCase(), 
+                department: rosterEntry.department.toUpperCase(),
+                // ----------------------------
             semester: rosterEntry.semester,
             password: hashedPassword,
             role: 'Student',
