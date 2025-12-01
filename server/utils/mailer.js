@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 // We're using Gmail, but this could be SendGrid, etc.
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp-relay.brevo.com',
     port: 587, // Switch to TLS port
     secure: false, // Must be false for port 587
     auth: {
