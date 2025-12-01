@@ -8,4 +8,8 @@ export default defineConfig({
     tailwindcss(),
     jsconfigPaths(),
   ],
+  server: {
+    host: true, 
+    port: 5173,
+  }
 })
