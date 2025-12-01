@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input"; // For Search
 import { Badge } from "@/components/ui/badge";
-import { Search, Calendar, User } from "lucide-react";
-// ---
+// --- FIX: Add CheckCircle2 here ---
+import { Search, Calendar, User, CheckCircle2, Loader2 } from "lucide-react"; 
+// ----------------------------------
+
 
 function BrowseEventsPage() {
   const [events, setEvents] = useState([]);
