@@ -3,16 +3,22 @@ const nodemailer = require('nodemailer');
 
 // 1. Create the "transporter" (the mail truck)
 // We're using Gmail, but this could be SendGrid, etc.
+
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com', // Explicitly set the host
+    port: 465,              // Use Secure SSL port
+    secure: true,           // Must be true for port 465
     auth: {
         user: process.env.EMAIL_HOST_USER,
         pass: process.env.EMAIL_HOST_PASSWORD,
     },
-    secure: true, 
-    port: 465,
+    // These settings help with timeouts on cloud servers
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 5000,    // 5 seconds
+    socketTimeout: 10000,     // 10 seconds
 });
 
+// ... rest of your file (sendFacultyInvite, etc.)
 // 2. A function to send the faculty invite email
 exports.sendFacultyInvite = async (email, token) => {
     // This is the link the faculty will click
