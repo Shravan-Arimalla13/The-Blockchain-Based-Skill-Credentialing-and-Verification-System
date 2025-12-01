@@ -43,6 +43,7 @@ function App() {
         <Route path="/event/:id" element={<PublicEventPage />} />
         <Route path="/verify" element={<VerificationPage />} />
         <Route path="/verify/:certId" element={<VerificationPage />} />
+        <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/" element={<LoginPage />} />
