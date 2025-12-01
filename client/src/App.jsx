@@ -1,6 +1,7 @@
 // In client/src/App.jsx
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// --- CHANGE 1: Import HashRouter instead of BrowserRouter ---
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner"; 
 
 // --- Component Imports ---
@@ -43,10 +44,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/activate" element={<StudentActivationPage />} />
           
-          {/* --- THIS IS THE CRITICAL ROUTE FOR YOUR LINK --- */}
+          {/* Routes remain exactly the same */}
           <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
-          {/* ---------------------------------------------- */}
-
           <Route path="/claim-invite/:token" element={<ClaimInvitePage />} />
           <Route path="/event/:id" element={<PublicEventPage />} />
           <Route path="/verify" element={<VerificationPage />} />

@@ -127,8 +127,7 @@ exports.requestStudentActivation = async (req, res) => {
         // We return the link in the response so you can debug/demo it even if email fails.
         // In a real production app, you might remove 'debugLink' for security, 
         // but for a demo/evaluation, this is a life-saver.
-        const debugLink = `https://the-blockchain-based-skill-credentialing-and-verific-ha8ecekrk.vercel.app/activate-account/${activationToken}`;
-
+        const debugLink = `https://the-blockchain-based-skill-credenti.vercel.app/#/activate-account/${activationToken}`;
         res.status(200).json({ 
             message: `Activation process started! (Email status: ${emailStatus})`, 
             debugLink: debugLink // <--- Look for this in your Browser Console
