@@ -18,15 +18,18 @@ const cleanJSON = (text) => {
     return text.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-// --- 1. CREATE QUIZ ---
+// --- 1. CREATE QUIZ (FIXED) ---
 exports.createQuiz = async (req, res) => {
     try {
         const { topic, description, totalQuestions, passingScore } = req.body;
         
+        // Handle case where user department might be missing (e.g. SuperAdmin)
+        const userDept = req.user.department || 'General';
+
         const newQuiz = new Quiz({
             topic, description, totalQuestions, passingScore,
             createdBy: req.user.id,
-            department: req.user.department
+            department: userDept
         });
         await newQuiz.save();
 
@@ -40,10 +43,14 @@ exports.createQuiz = async (req, res) => {
                 date: new Date(),
                 description: `Skill Assessment for ${topic}`,
                 createdBy: req.user.id,
+                // --- FIX: ADD REQUIRED FIELDS ---
+                department: userDept, 
+                isPublic: false,
+                // -------------------------------
                 certificatesIssued: true,
                 certificateConfig: {
                     collegeName: "K. S. Institute of Technology",
-                    headerDepartment: `Dept of ${req.user.department}`,
+                    headerDepartment: `Dept of ${userDept}`,
                     certificateTitle: "CERTIFICATE OF SKILL",
                     eventType: "Skill Assessment",
                     customSignatureText: "Examination Authority"
@@ -53,7 +60,8 @@ exports.createQuiz = async (req, res) => {
 
         res.status(201).json(newQuiz);
     } catch (error) {
-        res.status(500).json({ message: "Failed to create quiz" });
+        console.error("Create Quiz Error:", error); // Log exact error to terminal
+        res.status(500).json({ message: "Failed to create quiz: " + error.message });
     }
 };
 
@@ -61,10 +69,11 @@ exports.createQuiz = async (req, res) => {
 exports.getAvailableQuizzes = async (req, res) => {
     try {
         const studentDept = req.user.department;
-        const quizzes = await Quiz.find({ 
-            isActive: true,
-            $or: [{ department: studentDept }, { department: 'All' }, { department: 'College' }]
-        }).populate('createdBy', 'name');
+        const query = { isActive: true };
+        if (studentDept) {
+             query.$or = [{ department: studentDept }, { department: 'All' }, { department: 'College' }];
+        }
+        const quizzes = await Quiz.find(query).populate('createdBy', 'name');
 
         const quizzesWithStatus = await Promise.all(quizzes.map(async (quiz) => {
             const certName = `Certified: ${quiz.topic}`;
@@ -82,7 +91,7 @@ exports.getAvailableQuizzes = async (req, res) => {
     }
 };
 
-// --- 3. NEXT QUESTION (Using Gemini 2.5 Flash) ---
+// --- 3. NEXT QUESTION (Gemini 2.5 Flash) ---
 exports.nextQuestion = async (req, res) => {
     const { quizId, history } = req.body;
 
@@ -90,8 +99,8 @@ exports.nextQuestion = async (req, res) => {
         const quiz = await Quiz.findById(quizId);
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
-        // Difficulty Logic
         const currentQIndex = history ? history.length : 0;
+        
         let difficulty = 'Medium';
         const phase1Limit = Math.floor(quiz.totalQuestions * 0.33);
 
@@ -121,13 +130,10 @@ exports.nextQuestion = async (req, res) => {
             }
         `;
 
-        // --- CALL AI (GEMINI 2.5 FLASH) ---
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash', // <--- UPDATED HERE
+            model: 'gemini-2.5-flash', 
             contents: prompt,
-            config: {
-                responseMimeType: 'application/json' 
-            }
+            config: { responseMimeType: 'application/json' }
         });
 
         const responseText = typeof response.text === 'function' ? response.text() : response.text;
@@ -210,38 +216,5 @@ exports.submitQuiz = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error submitting quiz" });
-    }
-};
-
-
-// In server/controllers/quiz.controller.js
-
-// ... (keep existing imports and functions) ...
-
-// --- NEW: GET QUIZ DETAILS (For taking the quiz) ---
-exports.getQuizDetails = async (req, res) => {
-    try {
-        const { quizId } = req.params;
-        const quiz = await Quiz.findById(quizId).populate('createdBy', 'name');
-        
-        if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-
-        // Check if already passed
-        const certName = `Certified: ${quiz.topic}`;
-        const existingCert = await Certificate.findOne({ 
-            eventName: certName, 
-            studentEmail: req.user.email 
-        });
-
-        res.json({
-            topic: quiz.topic,
-            totalQuestions: quiz.totalQuestions, // <--- THE REAL LIMIT
-            passingScore: quiz.passingScore,
-            hasPassed: !!existingCert,
-            certificateId: existingCert?.certificateId
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: "Server Error" });
     }
 };
