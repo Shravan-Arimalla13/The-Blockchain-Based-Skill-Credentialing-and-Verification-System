@@ -1,7 +1,7 @@
 // In client/src/pages/StudentManagementPage.jsx
 import React, { useState, useEffect } from 'react';
 import api from '../api.js'; // Explicit .js extension
-import { TableSkeleton } from '../components/TableSkeleton.jsx'; // Explicit .jsx extension
+import { TableSkeleton } from '../components/TableSkeleton';
 
 // --- SHADCN IMPORTS ---
 import { Button } from "@/components/ui/button";

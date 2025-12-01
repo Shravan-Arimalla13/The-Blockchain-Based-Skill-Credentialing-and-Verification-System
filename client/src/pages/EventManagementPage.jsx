@@ -1,10 +1,11 @@
 // In client/src/pages/EventManagementPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api.js';
-import ParticipantsModal from '../components/ParticipantsModal.jsx';
+
 import SignatureCanvas from 'react-signature-canvas';
 import { useAuth } from '../context/AuthContext.jsx';
-
+import ParticipantsModal from '../components/ParticipantsModal';
+import { TableSkeleton } from '../components/TableSkeleton';
 // --- SHADCN IMPORTS ---
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
