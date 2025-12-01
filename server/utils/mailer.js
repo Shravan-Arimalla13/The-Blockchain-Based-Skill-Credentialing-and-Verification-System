@@ -5,17 +5,16 @@ const nodemailer = require('nodemailer');
 // We're using Gmail, but this could be SendGrid, etc.
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com', // Explicitly set the host
-    port: 465,              // Use Secure SSL port
-    secure: true,           // Must be true for port 465
+    host: 'smtp.gmail.com',
+    port: 587, // Switch to TLS port
+    secure: false, // Must be false for port 587
     auth: {
         user: process.env.EMAIL_HOST_USER,
         pass: process.env.EMAIL_HOST_PASSWORD,
     },
-    // These settings help with timeouts on cloud servers
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 5000,    // 5 seconds
-    socketTimeout: 10000,     // 10 seconds
+    tls: {
+        rejectUnauthorized: false // Helps avoid SSL errors on some cloud providers
+    }
 });
 
 // ... rest of your file (sendFacultyInvite, etc.)
