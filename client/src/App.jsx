@@ -20,14 +20,15 @@ import StudentQuizList from './pages/StudentQuizList';
 import TakeQuizPage from './pages/TakeQuizPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import AdminAnalyticsPage from './pages/AdminAnalyticsPage'; // Ensure this is imported
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
+import StudentSetPasswordPage from './pages/StudentSetPasswordPage'; // <-- THIS WAS MISSING
 
 // --- Component Imports ---
 import Navbar from './components/Navbar'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import RoleRoute from './components/RoleRoute';
-import ErrorBoundary from './components/ErrorBoundary'; // <-- Import ErrorBoundary
+import ErrorBoundary from './components/ErrorBoundary'; 
 
 function App() {
   return (
@@ -39,11 +40,11 @@ function App() {
         {/* --- Public Routes --- */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/activate" element={<StudentActivationPage />} />
+        <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
         <Route path="/claim-invite/:token" element={<ClaimInvitePage />} />
         <Route path="/event/:id" element={<PublicEventPage />} />
         <Route path="/verify" element={<VerificationPage />} />
         <Route path="/verify/:certId" element={<VerificationPage />} />
-        <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/" element={<LoginPage />} />
