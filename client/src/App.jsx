@@ -3,16 +3,15 @@ import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner"; 
 
-// --- Component Imports (Keep these standard) ---
+// --- Component Imports ---
 import Navbar from './components/Navbar'; 
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import RoleRoute from './components/RoleRoute';
 import ErrorBoundary from './components/ErrorBoundary';
-import Loading from './components/Loading'; // <-- New Import
+import Loading from './components/Loading'; 
 
-// --- LAZY LOAD PAGES (The New Method) ---
-// This prevents the entire app from crashing if one page import fails
+// --- LAZY LOAD PAGES ---
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const StudentManagementPage = React.lazy(() => import('./pages/StudentManagementPage'));
@@ -38,13 +37,16 @@ function App() {
     <Router>
       <Navbar />
       
-      {/* Suspense shows the loading spinner while the specific page code is being fetched */}
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* --- Public Routes --- */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/activate" element={<StudentActivationPage />} />
+          
+          {/* --- THIS IS THE CRITICAL ROUTE FOR YOUR LINK --- */}
           <Route path="/activate-account/:token" element={<StudentSetPasswordPage />} />
+          {/* ---------------------------------------------- */}
+
           <Route path="/claim-invite/:token" element={<ClaimInvitePage />} />
           <Route path="/event/:id" element={<PublicEventPage />} />
           <Route path="/verify" element={<VerificationPage />} />
