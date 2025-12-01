@@ -2,8 +2,8 @@
 const { GoogleGenAI } = require("@google/genai");
 const Quiz = require('../models/quiz.model');
 const Certificate = require('../models/certificate.model');
-const Event = require('../models/event.model');
 const User = require('../models/user.model');
+const Event = require('../models/event.model'); // Added Event model
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
 const { mintNFT } = require('../utils/blockchain');
@@ -18,12 +18,12 @@ const cleanJSON = (text) => {
     return text.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-// --- 1. CREATE QUIZ (FIXED) ---
+// --- 1. CREATE QUIZ ---
 exports.createQuiz = async (req, res) => {
     try {
         const { topic, description, totalQuestions, passingScore } = req.body;
         
-        // Handle case where user department might be missing (e.g. SuperAdmin)
+        // Handle case where user department might be missing
         const userDept = req.user.department || 'General';
 
         const newQuiz = new Quiz({
@@ -43,10 +43,8 @@ exports.createQuiz = async (req, res) => {
                 date: new Date(),
                 description: `Skill Assessment for ${topic}`,
                 createdBy: req.user.id,
-                // --- FIX: ADD REQUIRED FIELDS ---
                 department: userDept, 
                 isPublic: false,
-                // -------------------------------
                 certificatesIssued: true,
                 certificateConfig: {
                     collegeName: "K. S. Institute of Technology",
@@ -60,7 +58,7 @@ exports.createQuiz = async (req, res) => {
 
         res.status(201).json(newQuiz);
     } catch (error) {
-        console.error("Create Quiz Error:", error); // Log exact error to terminal
+        console.error("Create Quiz Error:", error); 
         res.status(500).json({ message: "Failed to create quiz: " + error.message });
     }
 };
@@ -91,7 +89,36 @@ exports.getAvailableQuizzes = async (req, res) => {
     }
 };
 
-// --- 3. NEXT QUESTION (Gemini 2.5 Flash) ---
+// --- 3. GET QUIZ DETAILS (The Missing Function!) ---
+exports.getQuizDetails = async (req, res) => {
+    try {
+        const { quizId } = req.params;
+        const quiz = await Quiz.findById(quizId).populate('createdBy', 'name');
+        
+        if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+        // Check if already passed
+        const certName = `Certified: ${quiz.topic}`;
+        const existingCert = await Certificate.findOne({ 
+            eventName: certName, 
+            studentEmail: req.user.email 
+        });
+
+        res.json({
+            topic: quiz.topic,
+            totalQuestions: quiz.totalQuestions,
+            passingScore: quiz.passingScore,
+            hasPassed: !!existingCert,
+            certificateId: existingCert?.certificateId
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
+
+// --- 4. NEXT QUESTION (Gemini 2.5 Flash) ---
 exports.nextQuestion = async (req, res) => {
     const { quizId, history } = req.body;
 
@@ -161,7 +188,7 @@ exports.nextQuestion = async (req, res) => {
     }
 };
 
-// --- 4. SUBMIT QUIZ ---
+// --- 5. SUBMIT QUIZ ---
 exports.submitQuiz = async (req, res) => {
     const { quizId, score } = req.body;
     const userId = req.user.id;
