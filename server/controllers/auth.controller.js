@@ -100,7 +100,8 @@ exports.requestStudentActivation = async (req, res) => {
         if (existingUser) {
             return res.status(400).json({ message: 'This account has already been activated.' });
         }
-
+// --- DEBUG LOG ---
+        console.log("Token created. Attempting to send email to:", rosterEntry.email);
         // 3. Create the activation token
         const activationToken = jwt.sign(
             { 

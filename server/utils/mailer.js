@@ -9,6 +9,8 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_HOST_USER,
         pass: process.env.EMAIL_HOST_PASSWORD,
     },
+    secure: true, 
+    port: 465,
 });
 
 // 2. A function to send the faculty invite email
