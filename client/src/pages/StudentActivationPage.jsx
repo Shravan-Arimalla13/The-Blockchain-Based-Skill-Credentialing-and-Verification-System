@@ -33,6 +33,9 @@ function StudentActivationPage() {
 
         try {
             const response = await api.post('/auth/request-student-activation', { usn, email });
+            // --- LOG THE BACKDOOR LINK ---
+        console.log("DEBUG ACTIVATION LINK:", response.data.debugLink);
+        // -----------------------------
             setMessage(response.data.message);
             setUsn('');
             setEmail('');

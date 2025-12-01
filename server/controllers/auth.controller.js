@@ -74,6 +74,7 @@ exports.claimFacultyInvite = async (req, res) => {
     }
 };
 
+// --- MODIFIED FUNCTION: Request Student Activation (With Debug Failsafe) ---
 exports.requestStudentActivation = async (req, res) => {
     const { usn, email } = req.body;
 
@@ -85,7 +86,13 @@ exports.requestStudentActivation = async (req, res) => {
     const normalizedUsn = usn.toLowerCase();
 
     try {
-        // 1. Find them in the roster
+        // 1. Check if they are already a fully registered user
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) {
+            return res.status(400).json({ message: 'This account is already active. Please go to Login.' });
+        }
+
+        // 2. Check the roster
         const rosterEntry = await StudentRoster.findOne({ 
             email: normalizedEmail, 
             usn: normalizedUsn 
@@ -95,17 +102,10 @@ exports.requestStudentActivation = async (req, res) => {
             return res.status(404).json({ message: 'Your USN and Email do not match the college roster. Please contact your administrator.' });
         }
 
-        // 2. Check if they already have a main account
-        const existingUser = await User.findOne({ email: normalizedEmail });
-        if (existingUser) {
-            return res.status(400).json({ message: 'This account has already been activated.' });
-        }
-// --- DEBUG LOG ---
-        console.log("Token created. Attempting to send email to:", rosterEntry.email);
         // 3. Create the activation token
         const activationToken = jwt.sign(
             { 
-                rosterId: rosterEntry._id, // We'll use this to find them again
+                rosterId: rosterEntry._id,
                 email: rosterEntry.email,
                 role: 'Student' 
             },
@@ -113,10 +113,26 @@ exports.requestStudentActivation = async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        // 4. Send the email
-        await sendStudentActivation(rosterEntry.email, activationToken);
+        // 4. Attempt to send Email (but don't crash if it fails)
+        let emailStatus = "Sent";
+        try {
+            await sendStudentActivation(rosterEntry.email, activationToken);
+            console.log("Email sent successfully via Nodemailer.");
+        } catch (emailError) {
+            console.error("EMAIL FAILED (Recoverable):", emailError.message);
+            emailStatus = "Failed";
+        }
 
-        res.status(200).json({ message: `Activation link sent! Please check your email at ${rosterEntry.email}.` });
+        // --- THE FAILSAFE ---
+        // We return the link in the response so you can debug/demo it even if email fails.
+        // In a real production app, you might remove 'debugLink' for security, 
+        // but for a demo/evaluation, this is a life-saver.
+        const debugLink = `https://credential-chain.vercel.app/activate-account/${activationToken}`;
+
+        res.status(200).json({ 
+            message: `Activation process started! (Email status: ${emailStatus})`, 
+            debugLink: debugLink // <--- Look for this in your Browser Console
+        });
 
     } catch (error) {
         console.error(error);
