@@ -2,12 +2,13 @@
 const express = require('express');
 const router = express.Router();
 
-// --- IMPORT CORRECT FUNCTION NAMES ---
+// --- IMPORT ALL FUNCTIONS ---
 const { 
     createQuiz, 
     getAvailableQuizzes, 
     nextQuestion, 
-    submitQuiz // <--- This must match the controller export
+    submitQuiz,
+    getQuizDetails // <-- MAKE SURE THIS IS HERE
 } = require('../controllers/quiz.controller');
 
 const authMiddleware = require('../middleware/auth.middleware');
@@ -29,6 +30,15 @@ router.get(
     getAvailableQuizzes
 );
 
+// Student: Get Quiz Details (Start Screen)
+// --- THIS WAS LIKELY MISSING ---
+router.get(
+    '/:quizId/details', 
+    authMiddleware, 
+    getQuizDetails
+);
+// ------------------------------
+
 // Student: Get next adaptive question
 router.post(
     '/next', 
@@ -40,7 +50,7 @@ router.post(
 router.post(
     '/submit', 
     authMiddleware, 
-    submitQuiz // <--- Ensure this variable is not undefined
+    submitQuiz 
 );
 
 module.exports = router;
