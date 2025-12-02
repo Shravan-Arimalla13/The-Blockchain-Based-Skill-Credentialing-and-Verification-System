@@ -1,25 +1,31 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import jsconfigPaths from 'vite-jsconfig-paths'
+import path from 'path' // <-- This was missing or caused the error
+import { fileURLToPath } from 'url'
+import tailwindcss from '@tailwindcss/vite'
+
+// Fix for __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   plugins: [react(), jsconfigPaths(),tailwindcss()],
-  base: '/', // <--- ADD THIS: Ensures assets load correctly with HashRouter
+  base: '/', // Ensure this is correct for Vercel routing
   server: {
     host: true,
     port: 5173
   },
   resolve: {
     alias: {
-      // This forces the browser-compatible version of buffer
+      // Forces browser-compatible buffer
       buffer: 'buffer/',
-      // Helps resolve path issues
+      // Properly resolves the @ alias for Shadcn
       "@": path.resolve(__dirname, "./src"),
     },
   },
   define: {
-    // Polyfill global for some older libraries
+    // Polyfill global for libraries like 'siwe'
     'global': 'window',
   },
   optimizeDeps: {
@@ -32,4 +38,3 @@ export default defineConfig({
     },
   }
 })
-
