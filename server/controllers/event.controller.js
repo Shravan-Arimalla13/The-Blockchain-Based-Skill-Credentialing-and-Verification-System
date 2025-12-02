@@ -11,11 +11,23 @@ const { logActivity } = require('../utils/logger');
 // In server/controllers/event.controller.js
 
 // --- Create a new event (Scoped to Dept) ---
+// In server/controllers/event.controller.js
+
 exports.createEvent = async (req, res) => {
     try {
-        const { name, date, description, certificateConfig, isPublic } = req.body; // <-- Accept isPublic
+        const { name, date, description, isPublic, certificateConfig } = req.body;
+        const userDept = req.user.department;
+
+        // --- FIX: DUPLICATE CHECK ---
+        const existingEvent = await Event.findOne({ 
+            name: name, 
+            department: userDept 
+        });
         
-        const userDept = req.user.department; 
+        if (existingEvent) {
+            return res.status(400).json({ message: 'An event with this name already exists in your department.' });
+        }
+        // ----------------------------
 
         const newEvent = new Event({
             name,
@@ -23,15 +35,14 @@ exports.createEvent = async (req, res) => {
             description,
             createdBy: req.user.id,
             department: userDept,
-            isPublic: isPublic || false, // <-- Save it
+            isPublic: isPublic || false,
             certificatesIssued: false,
             certificateConfig: certificateConfig 
         });
 
         const savedEvent = await newEvent.save();
         
-        // Log it (Optional)
-        // await logActivity(req.user, "EVENT_CREATED", `Created ${isPublic ? 'Public' : 'Private'} event: ${name}`);
+        // Log activity...
 
         res.status(201).json(savedEvent);
     } catch (error) {

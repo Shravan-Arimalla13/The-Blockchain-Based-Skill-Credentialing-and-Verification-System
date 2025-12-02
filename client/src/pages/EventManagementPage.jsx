@@ -1,11 +1,11 @@
 // In client/src/pages/EventManagementPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api.js';
-
+import ParticipantsModal from '../components/ParticipantsModal.jsx';
 import SignatureCanvas from 'react-signature-canvas';
 import { useAuth } from '../context/AuthContext.jsx';
-import ParticipantsModal from '../components/ParticipantsModal';
-import { TableSkeleton } from '../components/TableSkeleton';
+import { TableSkeleton } from '../components/TableSkeleton.jsx'; 
+
 // --- SHADCN IMPORTS ---
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { MoreHorizontal, Search, PenTool, RefreshCcw } from "lucide-react"; 
+import { MoreHorizontal, Search, PenTool, RefreshCcw, Loader2 } from "lucide-react"; // Added Loader2
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,31 +36,31 @@ function EventManagementPage() {
 
     // --- MAIN STATE ---
     const [events, setEvents] = useState([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     
+    // Issue State
     const [issueLoading, setIssueLoading] = useState(null);
     const [issueMessage, setIssueMessage] = useState({ id: null, text: null });
     const [issueError, setIssueError] = useState({ id: null, text: null });
 
     // --- CREATE FORM STATE ---
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false); // <--- NEW: PREVENT DOUBLE CLICK
     const [formData, setFormData] = useState({
         name: '', date: '', description: '',
         collegeName: 'K. S. Institute of Technology', 
         customSignatureText: 'Authorized Signature',
-        headerDepartment: '', // Default empty, will be set by logic below
+        headerDepartment: '',
         certificateTitle: 'CERTIFICATE OF PARTICIPATION',
         eventType: 'Workshop',
         eventDuration: '',
         isPublic: false 
     });
 
-    // Custom Input State
     const [customDeptInput, setCustomDeptInput] = useState('');
     const [customTitleInput, setCustomTitleInput] = useState('');
-
-    // Image State
     const [logoImage, setLogoImage] = useState(null); 
     const [signatureImage, setSignatureImage] = useState(null); 
     const sigPadRef = useRef({});
@@ -69,26 +69,23 @@ function EventManagementPage() {
 
     useEffect(() => { fetchEvents(); }, []);
 
-    // --- SMART DEPARTMENT LOGIC ---
     useEffect(() => {
         if (user) {
             if (user.role === 'Faculty' && user.department) {
-                // FACULTY: Auto-fill their department for convenience
                 const formalDept = `DEPARTMENT OF ${user.department.toUpperCase()}`; 
                 setFormData(prev => ({ ...prev, headerDepartment: formalDept }));
             } else if (user.role === 'SuperAdmin') {
-                // SUPERADMIN: Default to "Manual" mode so they can type any department
                 setFormData(prev => ({ ...prev, headerDepartment: 'OTHER' }));
             }
         }
     }, [user]);
 
     const fetchEvents = async () => {
+        setIsLoadingData(true);
         try {
             const response = await api.get('/events');
             setEvents(response.data);
             
-            // Pre-load defaults from latest event
             if (response.data.length > 0) {
                 const latest = response.data.reduce((a, b) => (new Date(a.createdAt) > new Date(b.createdAt) ? a : b));
                 if (latest.certificateConfig) {
@@ -96,7 +93,11 @@ function EventManagementPage() {
                     setSignatureImage(latest.certificateConfig.signatureImage || null);
                 }
             }
-        } catch (err) { console.error("Failed to fetch events"); }
+        } catch (err) { 
+            console.error("Failed to fetch events"); 
+        } finally {
+            setIsLoadingData(false); 
+        }
     };
 
     const handleImageUpload = (e, setFunction) => {
@@ -109,19 +110,21 @@ function EventManagementPage() {
     };
 
     const clearSig = () => {
-        if (sigPadRef.current) {
-            sigPadRef.current.clear();
-        }
+        if (sigPadRef.current) sigPadRef.current.clear();
         setSignatureImage(null); 
     };
 
+    // --- UPDATED CREATE HANDLER ---
     const handleCreateEvent = async () => {
+        if (isCreating) return; // <--- BLOCK DOUBLE CLICKS
+
         if (!formData.name || !formData.date) {
             alert("Please fill in the Event Name and Date.");
             return;
         }
 
-        // Determine final values (Dropdown vs Custom Input)
+        setIsCreating(true); // <--- START LOADING
+
         const finalDept = formData.headerDepartment === 'OTHER' ? customDeptInput : formData.headerDepartment;
         const finalTitle = formData.certificateTitle === 'OTHER' ? customTitleInput : formData.certificateTitle;
 
@@ -151,14 +154,14 @@ function EventManagementPage() {
             setIsDialogOpen(false); 
             fetchEvents(); 
             
-            // Reset Text Fields
             setFormData(prev => ({ 
                 ...prev, name: '', date: '', description: '', eventType: '', eventDuration: '', isPublic: false
             }));
-            // We keep the headerDepartment logic as-is (Auto or Manual) for the next event
             
         } catch (err) {
             alert(err.response?.data?.message || "Failed to create event");
+        } finally {
+            setIsCreating(false); // <--- STOP LOADING
         }
     };
 
@@ -205,7 +208,6 @@ function EventManagementPage() {
                             </DialogHeader>
                             
                             <div className="grid gap-6 py-4">
-                                {/* 1. Event Details */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Event Name</Label>
@@ -224,7 +226,6 @@ function EventManagementPage() {
                                 <hr className="border-border my-2" />
                                 <h3 className="font-semibold text-foreground">Certificate Details</h3>
                                 
-                                {/* 2. Department Selection (Smart Logic) */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Department Header</Label>
@@ -238,10 +239,9 @@ function EventManagementPage() {
                                             <option value="DEPARTMENT OF ELECTRONICS & COMMUNICATION (ECE)">Dept. of ECE</option>
                                             <option value="OTHER">-- Type Manually --</option>
                                         </select>
-                                        {/* Show input if "Other" is selected (Default for SuperAdmin) */}
                                         {formData.headerDepartment === 'OTHER' && (
                                             <Input 
-                                                placeholder="Type Department Name (e.g., DEPARTMENT OF CIVIL ENG)" 
+                                                placeholder="Type Department Name" 
                                                 value={customDeptInput}
                                                 onChange={(e) => setCustomDeptInput(e.target.value)}
                                                 className="mt-2"
@@ -249,7 +249,6 @@ function EventManagementPage() {
                                         )}
                                     </div>
                                     
-                                    {/* Public Checkbox */}
                                     <div className="flex items-end pb-2">
                                         <div className="flex items-center space-x-2 border p-2 rounded-md w-full bg-muted/20 h-10 border-input">
                                             <input 
@@ -301,7 +300,6 @@ function EventManagementPage() {
                                 <hr className="border-border my-2" />
                                 <h3 className="font-semibold text-foreground">Branding & Signature</h3>
 
-                                {/* 3. Branding */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>College Name</Label>
@@ -321,7 +319,6 @@ function EventManagementPage() {
                                     </div>
                                 </div>
 
-                                {/* 4. Signature */}
                                 <div className="space-y-2">
                                     <Label className="flex items-center justify-between">
                                         <span className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Digital Signature</span>
@@ -363,12 +360,25 @@ function EventManagementPage() {
                                 </div>
                             </div>
 
-                            <Button onClick={handleCreateEvent} className="w-full">Confirm & Create Event</Button>
+                            {/* --- BUTTON WITH LOADING STATE --- */}
+                            <Button 
+                                onClick={handleCreateEvent} 
+                                className="w-full"
+                                disabled={isCreating} // Disabled when loading
+                            >
+                                {isCreating ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    "Confirm & Create Event"
+                                )}
+                            </Button>
                         </DialogContent>
                     </Dialog>
                 </div>
 
-                {/* --- EVENT LIST TABLE --- */}
                 <Card className="shadow-lg">
                     <CardHeader>
                         <CardTitle>Existing Events</CardTitle>
@@ -390,7 +400,9 @@ function EventManagementPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredEvents.length === 0 ? (
+                                    {isLoadingData ? (
+                                        <TableSkeleton columns={5} rows={5} />
+                                    ) : filteredEvents.length === 0 ? (
                                         <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">{searchTerm ? "No matching events." : "No events found."}</TableCell></TableRow>
                                     ) : (
                                         filteredEvents.map((event) => {
