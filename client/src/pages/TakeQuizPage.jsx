@@ -13,13 +13,11 @@ import {
     Loader2, CheckCircle2, XCircle, Trophy, ShieldCheck, 
     ArrowRight, BrainCircuit, AlertCircle, LogOut 
 } from "lucide-react";
-// ---
 
 function TakeQuizPage() {
     const { quizId } = useParams();
     const navigate = useNavigate();
     
-    // --- STATE ---
     const [loading, setLoading] = useState(true);
     const [quizMeta, setQuizMeta] = useState(null); 
     const [questionData, setQuestionData] = useState(null);
@@ -28,38 +26,32 @@ function TakeQuizPage() {
     
     const [selectedOption, setSelectedOption] = useState(null);
     const [isAnswered, setIsAnswered] = useState(false);
-    
     const [gameOver, setGameOver] = useState(false);
     const [finalResult, setFinalResult] = useState(null);
 
-    // --- DIFFICULTY COLORS MAP ---
     const difficultyBadgeColor = {
         Easy: "bg-green-500 hover:bg-green-600 border-transparent text-white",
         Medium: "bg-amber-500 hover:bg-amber-600 border-transparent text-white",
         Hard: "bg-red-600 hover:bg-red-700 border-transparent text-white"
     };
 
-    // --- HELPER: Remove prefixes like "A.", "a)", "1." ---
     const cleanOptionText = (text) => {
         if (!text) return "";
-        // Regex looks for: Start of line -> (Letter/Number) -> (Dot/Parenthesis/Space)
         return text.replace(/^[A-Da-d0-9]+[.)\s]+/, "").trim();
     };
 
-    // --- INITIAL FETCH ---
     useEffect(() => {
         const initQuiz = async () => {
             try {
                 const res = await api.get(`/quiz/${quizId}/details`);
-                
                 if (res.data.hasPassed) {
                     alert("You have already passed this assessment!");
                     navigate('/student/quizzes');
                     return;
                 }
-                
                 setQuizMeta(res.data);
-                fetchNext(res.data.topic); 
+                // Pass empty history explicitly for first question
+                fetchNext([]); 
             } catch (err) {
                 console.error("Failed to load quiz details", err);
                 navigate('/student/quizzes');
@@ -68,15 +60,19 @@ function TakeQuizPage() {
         initQuiz();
     }, [quizId, navigate]);
 
-    // --- FETCH NEXT QUESTION ---
-    const fetchNext = async () => {
+    // --- MODIFIED: Accept history as argument ---
+    const fetchNext = async (currentHistory) => {
         setLoading(true);
         setSelectedOption(null);
         setIsAnswered(false);
+        
+        // Use the passed history OR the state history (fallback)
+        const historyToSend = currentHistory || history;
+
         try {
             const res = await api.post('/quiz/next', { 
                 quizId, 
-                history 
+                history: historyToSend 
             });
             setQuestionData(res.data);
         } catch (err) {
@@ -86,25 +82,23 @@ function TakeQuizPage() {
         }
     };
 
-    // --- HANDLE ANSWER ---
     const handleAnswer = (option) => {
         if (loading) return;
         setSelectedOption(option);
         setIsAnswered(true);
-        
-        // We compare the raw option string because that's what the AI set as correctAnswer
-        // Visual cleaning happens only on render
         if (option === questionData.correctAnswer) setScore(prev => prev + 1);
     };
 
-    // --- NEXT / SUBMIT ---
     const handleNext = async () => {
         const isCorrect = selectedOption === questionData.correctAnswer;
 
+        // 1. Create the updated history array immediately
         const newHistory = [...history, { 
             questionText: questionData.question, 
             isCorrect 
         }];
+        
+        // 2. Update State (this happens async)
         setHistory(newHistory);
 
         const limit = quizMeta?.totalQuestions || 5;
@@ -125,15 +119,15 @@ function TakeQuizPage() {
                 setLoading(false);
             }
         } else {
-            fetchNext();
+            // 3. PASS THE NEW HISTORY DIRECTLY to the fetch function
+            // This solves the repetition bug because we don't wait for state to update
+            fetchNext(newHistory);
         }
     };
 
-    // --- FULL SCREEN OVERLAY (Hides Navbar) ---
+    // ... (Render logic remains exactly the same) ...
     return (
         <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col overflow-y-auto">
-            
-            {/* --- QUIZ HEADER --- */}
             <div className="w-full bg-white dark:bg-slate-900 border-b px-6 py-3 flex justify-between items-center shadow-sm shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
@@ -151,11 +145,8 @@ function TakeQuizPage() {
                 </Link>
             </div>
 
-            {/* --- MAIN CONTENT --- */}
             <div className="flex-grow flex flex-col items-center justify-center p-4 w-full">
-                
                 {gameOver ? (
-                    // --- RESULTS CARD ---
                     <Card className="w-full max-w-md text-center shadow-2xl border-t-8 border-yellow-500 animate-in zoom-in-95">
                         <CardContent className="pt-10 pb-10 space-y-6">
                              {finalResult?.passed ? (
@@ -191,15 +182,12 @@ function TakeQuizPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                    // --- QUIZ CARD ---
                     <div className="w-full max-w-3xl space-y-4">
-                        {/* Progress & Difficulty Badge */}
                         <div className="flex justify-between items-center px-1">
                             <span className="text-sm font-medium text-muted-foreground">
                                 Question {history.length + 1} of {quizMeta?.totalQuestions || "-"}
                             </span>
                             
-                            {/* --- COLORED BADGE --- */}
                             {!loading && questionData ? (
                                 <Badge className={`${difficultyBadgeColor[questionData.difficulty]} text-xs font-bold px-3 shadow-sm`}>
                                     {questionData.difficulty} Mode
@@ -211,7 +199,6 @@ function TakeQuizPage() {
                         <Progress value={(history.length / (quizMeta?.totalQuestions || 1)) * 100} className="h-1.5 w-full" />
 
                         <Card className="shadow-xl border-0 overflow-hidden flex flex-col w-full">
-                            {/* --- FIXED: QUESTION HEADER (Reduced Padding & Left Align) --- */}
                             <div className="bg-slate-900 p-6 text-white min-h-[160px] flex flex-col justify-center w-full">
                                 {loading ? (
                                     <div className="space-y-3 w-full">
@@ -225,13 +212,11 @@ function TakeQuizPage() {
                                 )}
                             </div>
 
-                            {/* Options */}
                             <CardContent className="p-6 grid gap-3 bg-white dark:bg-slate-950">
                                 {loading ? (
                                     [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)
                                 ) : (
                                     questionData?.options.map((option, index) => {
-                                        // --- TEXT WRAPPING FIXES (whitespace-normal, h-auto, min-h) ---
                                         let style = "h-auto min-h-[3.5rem] py-3 px-4 text-base justify-start text-left whitespace-normal break-words border-2 hover:border-indigo-500 transition-all relative";
                                         
                                         if (isAnswered) {
@@ -251,10 +236,8 @@ function TakeQuizPage() {
                                                     {String.fromCharCode(65 + index)}
                                                 </span>
                                                 
-                                                {/* --- USE THE CLEANED TEXT (No A. B. C. repetition) --- */}
                                                 <span className="flex-grow">{cleanOptionText(option)}</span>
                                                 
-                                                {/* Result Icons */}
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                                                     {isAnswered && option === questionData.correctAnswer && (
                                                         <CheckCircle2 className="h-5 w-5 text-green-600 animate-in zoom-in" />
@@ -268,7 +251,6 @@ function TakeQuizPage() {
                                     })
                                 )}
 
-                                {/* Explanation Footer */}
                                 {!loading && isAnswered && (
                                     <div className="mt-4 pt-4 border-t flex flex-col md:flex-row gap-4 items-center justify-between animate-in slide-in-from-bottom-2">
                                         <div className="text-sm text-muted-foreground italic w-full">

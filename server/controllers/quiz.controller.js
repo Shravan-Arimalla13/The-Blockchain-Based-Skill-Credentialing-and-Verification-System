@@ -2,8 +2,8 @@
 const { GoogleGenAI } = require("@google/genai");
 const Quiz = require('../models/quiz.model');
 const Certificate = require('../models/certificate.model');
+const Event = require('../models/event.model');
 const User = require('../models/user.model');
-const Event = require('../models/event.model'); // Added Event model
 const { nanoid } = require('nanoid');
 const crypto = require('crypto');
 const { mintNFT } = require('../utils/blockchain');
@@ -24,19 +24,21 @@ exports.createQuiz = async (req, res) => {
         const { topic, description, totalQuestions, passingScore } = req.body;
         
         // Handle case where user department might be missing
-        const userDept = req.user.department || 'General';
+        // FORCE UPPERCASE to match your standardized data
+        const userDept = (req.user.department || 'General').toUpperCase();
 
         const newQuiz = new Quiz({
-            topic, description, totalQuestions, passingScore,
+            topic: topic.trim(), // Remove extra spaces
+            description, 
+            totalQuestions, 
+            passingScore,
             createdBy: req.user.id,
-           // --- FIX: FORCE UPPERCASE ---
-            department: (req.user.department || 'General').toUpperCase() 
-            // ----------------------------
+            department: userDept
         });
         await newQuiz.save();
 
         // Create Shadow Event for Certificate Config
-        const certName = `Certified: ${topic}`;
+        const certName = `Certified: ${topic.trim()}`;
         const existingEvent = await Event.findOne({ name: certName });
         
         if (!existingEvent) {
@@ -50,7 +52,7 @@ exports.createQuiz = async (req, res) => {
                 certificatesIssued: true,
                 certificateConfig: {
                     collegeName: "K. S. Institute of Technology",
-                    headerDepartment: `Dept of ${userDept}`,
+                    headerDepartment: `DEPARTMENT OF ${userDept}`, // Professional Header
                     certificateTitle: "CERTIFICATE OF SKILL",
                     eventType: "Skill Assessment",
                     customSignatureText: "Examination Authority"
@@ -68,34 +70,39 @@ exports.createQuiz = async (req, res) => {
 // --- 2. GET QUIZZES ---
 exports.getAvailableQuizzes = async (req, res) => {
     try {
-        const studentDept = req.user.department;
+        const studentDept = req.user.department ? req.user.department.toUpperCase() : 'GENERAL';
+        
         const query = { isActive: true };
-        if (studentDept) {
-             query.$or = [{ department: studentDept }, { department: 'All' }, { department: 'College' }];
-        }
+        // Show quizzes for Student's department OR 'All' OR 'College'
+        query.$or = [{ department: studentDept }, { department: 'All' }, { department: 'College' }];
+        
         const quizzes = await Quiz.find(query).populate('createdBy', 'name');
 
         const quizzesWithStatus = await Promise.all(quizzes.map(async (quiz) => {
             const certName = `Certified: ${quiz.topic}`;
-            const hasCert = await Certificate.findOne({ eventName: certName, studentEmail: req.user.email });
+            const hasCert = await Certificate.findOne({ 
+                eventName: certName, 
+                studentEmail: req.user.email.toLowerCase() 
+            });
             return {
                 ...quiz.toObject(),
-                hasPassed: !!hasCert,
+                hasPassed: !!hasCert, // Boolean: true if cert exists
                 certificateId: hasCert ? hasCert.certificateId : null
             };
         }));
 
         res.json(quizzesWithStatus);
     } catch (error) {
+        console.error("Fetch Quiz Error:", error);
         res.status(500).json({ message: "Failed to fetch quizzes" });
     }
 };
 
-// --- 3. GET QUIZ DETAILS (The Missing Function!) ---
+// --- 3. GET QUIZ DETAILS ---
 exports.getQuizDetails = async (req, res) => {
     try {
         const { quizId } = req.params;
-        const quiz = await Quiz.findById(quizId).populate('createdBy', 'name');
+        const quiz = await Quiz.findById(quizId);
         
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
@@ -103,7 +110,7 @@ exports.getQuizDetails = async (req, res) => {
         const certName = `Certified: ${quiz.topic}`;
         const existingCert = await Certificate.findOne({ 
             eventName: certName, 
-            studentEmail: req.user.email 
+            studentEmail: req.user.email.toLowerCase() 
         });
 
         res.json({
@@ -120,7 +127,7 @@ exports.getQuizDetails = async (req, res) => {
     }
 };
 
-// --- 4. NEXT QUESTION (Gemini 2.5 Flash) ---
+// --- 4. NEXT QUESTION (AI Engine) ---
 exports.nextQuestion = async (req, res) => {
     const { quizId, history } = req.body;
 
@@ -130,6 +137,7 @@ exports.nextQuestion = async (req, res) => {
 
         const currentQIndex = history ? history.length : 0;
         
+        // Difficulty Logic
         let difficulty = 'Medium';
         const phase1Limit = Math.floor(quiz.totalQuestions * 0.33);
 
@@ -159,14 +167,15 @@ exports.nextQuestion = async (req, res) => {
             }
         `;
 
+        // Call AI
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash', 
+            model: 'gemini-1.5-flash-001', 
             contents: prompt,
             config: { responseMimeType: 'application/json' }
         });
 
+        // Parse Response
         const responseText = typeof response.text === 'function' ? response.text() : response.text;
-        
         let questionData;
         try {
              const cleaned = cleanJSON(responseText);
@@ -174,10 +183,10 @@ exports.nextQuestion = async (req, res) => {
         } catch (e) {
              console.error("JSON Parse Error:", e); 
              questionData = {
-                 question: "AI is calibrating...",
-                 options: ["Continue"],
+                 question: "AI is calibrating... Click any option.",
+                 options: ["Continue", "Retry"],
                  correctAnswer: "Continue",
-                 explanation: "Placeholder."
+                 explanation: "AI returned invalid data."
              };
         }
 
@@ -205,8 +214,10 @@ exports.submitQuiz = async (req, res) => {
 
         const student = await User.findById(userId);
         const certName = `Certified: ${quiz.topic}`;
-        
-        if (await Certificate.findOne({ eventName: certName, studentEmail: student.email })) {
+        const normalizedEmail = student.email.toLowerCase();
+
+        // DOUBLE CHECK: Has certificate?
+        if (await Certificate.findOne({ eventName: certName, studentEmail: normalizedEmail })) {
             return res.json({ passed: true, message: "You already have this certificate!" });
         }
 
@@ -215,7 +226,7 @@ exports.submitQuiz = async (req, res) => {
         
         if (student.walletAddress) {
             try {
-                const hashData = student.email + new Date() + certName;
+                const hashData = normalizedEmail + new Date() + certName;
                 const certHash = crypto.createHash('sha256').update(hashData).digest('hex');
                 const mintResult = await mintNFT(student.walletAddress, certHash);
                 txHash = mintResult.transactionHash;
@@ -230,7 +241,7 @@ exports.submitQuiz = async (req, res) => {
             certificateHash: txHash,
             transactionHash: txHash,
             studentName: student.name,
-            studentEmail: student.email,
+            studentEmail: normalizedEmail,
             eventName: certName,
             eventDate: new Date(),
             issuedBy: userId,
@@ -238,7 +249,7 @@ exports.submitQuiz = async (req, res) => {
         });
         
         await newCert.save();
-        try { sendCertificateIssued(student.email, student.name, certName, certId); } catch(e) {}
+        try { sendCertificateIssued(normalizedEmail, student.name, certName, certId); } catch(e) {}
 
         res.json({ passed: true, certificateId: certId, message: "Quiz Passed! Certificate Issued." });
 
